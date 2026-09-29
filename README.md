@@ -6,7 +6,7 @@
 
 A weekly series on the mathematics, optimisation and numerical methods behind machine-learning algorithms.
 
-This repository contains the public technical material that accompanies the LinkedIn newsletter **What's Under the Hood?**. Each lecture starts from a familiar machine-learning API and works down to the objective function, geometry, numerical method and implementation choices underneath it.
+This repository contains the technical material that accompanies the LinkedIn newsletter **What's Under the Hood?**. Each lecture starts from a familiar machine-learning API and works down to the objective function, geometry, numerical method and implementation choices underneath it.
 
 ## What this series is about
 
@@ -25,34 +25,26 @@ The aim is to understand what happens between `fit()` and `predict()`.
 
 ## Lectures
 
-Lectures are released one at a time alongside the LinkedIn newsletter. Only published material appears in this repository.
+Lectures are released one at a time alongside the LinkedIn newsletter.
 
-| # | Topic | Central question | Status |
+| # | Topic | Central question | Lecture |
 |---:|---|---|---|
-| 01 | Linear Regression | What does `fit()` actually solve? | Coming first |
+| 01 | Linear Regression | What does `fit()` actually solve? | [Read lecture](01-linear-regression/) |
 
 ## Repository structure
 
-Each released lecture will live in its own directory:
+Each released lecture lives in its own directory:
 
 ```text
 whats-under-the-hood/
 ├── 01-linear-regression/
-│   ├── index.html
-│   └── assets/
-├── 02-logistic-regression/
-│   ├── index.html
-│   └── assets/
+│   └── index.html
 ├── assets/
 ├── index.html
 └── README.md
 ```
 
-The root `index.html` is the landing page for the series. Individual lecture directories are self-contained so that each release can be read directly through GitHub Pages.
-
-## Publication model
-
-The full teaching archive is maintained privately. Public lectures are adapted and released here one at a time. This keeps the repository aligned with the LinkedIn series rather than exposing the complete course in advance.
+The root `index.html` is the landing page for the series. Individual lecture directories can be read directly through GitHub Pages.
 
 ## Author
 
