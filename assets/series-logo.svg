@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-labelledby="title desc">
+  <title id="title">What's Under the Hood?</title>
+  <desc id="desc">Series logo with mathematical and machine-learning motifs.</desc>
+  <rect width="600" height="600" rx="28" fill="#ffffff"/>
+  <g fill="none" stroke="#7f9db7" stroke-width="8" opacity="0.8">
+    <path d="M70 62h55M70 62v92M70 154h55M210 62h55M265 62v92M210 154h55"/>
+    <path d="M405 112l58-46 62 62-48 68-72-84z"/>
+    <path d="M463 66l14 130M405 112l120 16"/>
+  </g>
+  <g fill="#1d78b5">
+    <circle cx="405" cy="112" r="14"/><circle cx="463" cy="66" r="14"/><circle cx="525" cy="128" r="14"/><circle cx="477" cy="196" r="14"/>
+  </g>
+  <text x="70" y="118" font-family="Georgia, serif" font-size="46" font-style="italic" fill="#607d99">a  b</text>
+  <text x="70" y="155" font-family="Georgia, serif" font-size="46" font-style="italic" fill="#607d99">c  d</text>
+  <text x="64" y="284" font-family="Arial, Helvetica, sans-serif" font-size="86" font-weight="800" fill="#0d1b2a">WHAT'S</text>
+  <text x="64" y="375" font-family="Arial, Helvetica, sans-serif" font-size="75" font-weight="800" fill="#087fbe">UNDER THE</text>
+  <text x="64" y="466" font-family="Arial, Helvetica, sans-serif" font-size="92" font-weight="800" fill="#0d1b2a">HOOD?</text>
+  <text x="70" y="550" font-family="Consolas, monospace" font-size="54" font-weight="700" fill="#139bd7">&lt;/&gt;</text>
+  <text x="260" y="548" font-family="Georgia, serif" font-size="72" fill="#7f9db7">Σ</text>
+  <text x="445" y="548" font-family="Georgia, serif" font-size="58" font-style="italic" fill="#7f9db7">∇θ</text>
+</svg>
