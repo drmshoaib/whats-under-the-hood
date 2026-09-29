@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="What's Under the Hood? #01 — Linear Regression: what does fit() actually solve? Least squares, normal equations, projection geometry, conditioning and numerical implementation.">
+  <title>#01 Linear Regression — What's Under the Hood?</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink:#0d1b2a; --muted:#52606d; --accent:#0b8fd8; --accent-dark:#0a5f9e;
+      --line:#d9e2ec; --panel:#f7fafc; --code:#eef3f7; --warn:#fff8e6;
+    }
+    *{box-sizing:border-box} html{scroll-behavior:smooth}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:#fff;line-height:1.68}
+    .layout{display:grid;grid-template-columns:260px minmax(0,900px);gap:54px;max-width:1240px;margin:0 auto;padding:42px 30px 90px}
+    aside{position:sticky;top:24px;align-self:start;max-height:calc(100vh - 48px);overflow:auto;padding-right:18px}
+    .series{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink);font-weight:700;margin-bottom:22px}
+    .series img{width:50px;height:50px;border-radius:8px}
+    .back{display:inline-block;margin-bottom:22px;color:var(--accent-dark);font-size:.9rem}
+    nav{border-top:1px solid var(--line);padding-top:16px}
+    nav strong{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+    nav ol{padding-left:1.25rem;margin:.7rem 0 0;font-size:.86rem}
+    nav li{margin:.42rem 0} nav a{color:var(--muted);text-decoration:none} nav a:hover{color:var(--accent-dark)}
+    main{min-width:0}
+    .eyebrow{margin:0 0 8px;color:var(--accent-dark);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:.82rem}
+    h1{font-size:clamp(2.3rem,6vw,4.4rem);line-height:1.04;letter-spacing:-.04em;margin:0 0 18px}
+    .subtitle{font-size:1.32rem;color:var(--muted);margin:0 0 26px;max-width:760px}
+    .meta{font-size:.9rem;color:var(--muted);padding-bottom:28px;border-bottom:1px solid var(--line)}
+    h2{font-size:1.8rem;line-height:1.2;margin:2.4em 0 .7em;padding-top:.2em} h3{font-size:1.25rem;margin:1.7em 0 .5em}
+    p{margin:.9em 0} a{color:var(--accent-dark)}
+    .lead{font-size:1.08rem}
+    .equation-box,.note,.warning{border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:1.35em 0;background:var(--panel)}
+    .equation-box{text-align:center;font-size:1.07rem}
+    .warning{background:var(--warn)}
+    .kicker{font-weight:700;color:var(--accent-dark)}
+    code{font-family:Consolas,"Liberation Mono",monospace;background:var(--code);padding:.08em .34em;border-radius:4px;font-size:.9em}
+    pre{background:#0f1720;color:#edf4fa;border-radius:12px;padding:18px 20px;overflow:auto;line-height:1.5;font-size:.88rem}
+    pre code{background:none;padding:0;color:inherit}
+    table{border-collapse:collapse;width:100%;margin:1.4em 0;font-size:.93rem;display:block;overflow:auto}
+    th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top} th{background:var(--panel)}
+    figure{margin:1.8em 0}.fig{border:1px solid var(--line);border-radius:12px;padding:18px;background:var(--panel)}
+    figure svg{display:block;width:100%;height:auto}figcaption{color:var(--muted);font-size:.86rem;margin-top:9px;text-align:center}
+    .takeaways{border-left:4px solid var(--accent);padding:4px 0 4px 18px;margin:1.5em 0}.takeaways li{margin:.45em 0}
+    .refs{font-size:.92rem;color:var(--muted)}
+    footer{margin-top:55px;padding-top:22px;border-top:1px solid var(--line);color:var(--muted);font-size:.92rem}
+    mjx-container{overflow-x:auto;overflow-y:hidden;max-width:100%}
+    @media(max-width:860px){.layout{grid-template-columns:1fr;padding:26px 20px 70px;gap:18px}aside{position:static;max-height:none;padding-right:0}nav{display:none}.series{margin-bottom:8px}.back{margin-bottom:4px}}
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <a class="series" href="../"><img src="../assets/series-logo.svg" alt="Series logo"><span>What's Under the Hood?</span></a>
+    <a class="back" href="../">&larr; Series index</a>
+    <nav aria-label="Lecture contents">
+      <strong>Lecture 01</strong>
+      <ol>
+        <li><a href="#question">The question behind fit()</a></li>
+        <li><a href="#objective">The least-squares objective</a></li>
+        <li><a href="#derivation">From loss to normal equations</a></li>
+        <li><a href="#geometry">The geometry</a></li>
+        <li><a href="#numerics">Why we do not invert XᵀX</a></li>
+        <li><a href="#example">Worked example</a></li>
+        <li><a href="#collinearity">When coefficients explode</a></li>
+        <li><a href="#python">What Python actually does</a></li>
+        <li><a href="#assumptions">Assumptions and interpretation</a></li>
+        <li><a href="#summary">Under the hood</a></li>
+      </ol>
+    </nav>
+  </aside>
+
+  <main>
+    <header>
+      <p class="eyebrow">What's Under the Hood? · #01</p>
+      <h1>Linear Regression</h1>
+      <p class="subtitle">What does <code>fit()</code> actually solve?</p>
+      <p class="meta">Dr. Muhammad Shoaib · Applied Mathematics &amp; Data Science</p>
+    </header>
+
+    <section id="question">
+      <h2>The question behind <code>fit()</code></h2>
+      <p class="lead">A linear regression model can be fitted in one line:</p>
+<pre><code>from sklearn.linear_model import LinearRegression
+model = LinearRegression().fit(X, y)</code></pre>
+      <p>The API is deliberately simple. The computation underneath it is a compact piece of applied mathematics: an optimisation problem, an orthogonal projection and a numerical linear-algebra problem are all hiding inside <code>fit()</code>.</p>
+      <p>This lecture follows that chain. The aim is to understand what is solved, why the familiar closed form appears, and why good software usually does <em>not</em> evaluate that closed form literally.</p>
+    </section>
+
+    <section id="objective">
+      <h2>1. The least-squares objective</h2>
+      <p>For $n$ observations and $p$ predictors, write the linear model as</p>
+      <div class="equation-box">$$y=X\beta+\varepsilon,$$</div>
+      <p>where $X\in\mathbb{R}^{n\times(p+1)}$ contains a column of ones if an intercept is fitted, $\beta$ is the coefficient vector and $\varepsilon$ is the error vector.</p>
+      <p>Ordinary least squares chooses the coefficients that minimise the squared Euclidean length of the residual vector:</p>
+      <div class="equation-box">$$\hat\beta=\arg\min_{\beta}\;\|y-X\beta\|_2^2.$$</div>
+      <p>Equivalently, it minimises</p>
+      <div class="equation-box">$$\operatorname{RSS}(\beta)=\sum_{i=1}^{n}(y_i-x_i^\top\beta)^2.$$</div>
+      <p>The square matters. It gives a smooth convex quadratic objective, weights large residuals strongly, and under independent Gaussian errors makes least squares identical to maximum-likelihood estimation.</p>
+    </section>
+
+    <section id="derivation">
+      <h2>2. From the loss to the normal equations</h2>
+      <p>Expand the objective:</p>
+      $$\operatorname{RSS}(\beta)=y^\top y-2\beta^\top X^\top y+\beta^\top X^\top X\beta.$$
+      <p>Differentiating with respect to $\beta$ gives</p>
+      $$\nabla_\beta\operatorname{RSS}=-2X^\top y+2X^\top X\beta.$$
+      <p>At the minimum the gradient is zero, hence</p>
+      <div class="equation-box">$$X^\top X\hat\beta=X^\top y.$$</div>
+      <p>These are the <strong>normal equations</strong>. If $X$ has full column rank, $X^\top X$ is invertible and algebra gives</p>
+      <div class="equation-box">$$\hat\beta=(X^\top X)^{-1}X^\top y.$$</div>
+      <p>This expression is mathematically useful. It tells us how the estimator depends on $X$ and $y$, and it leads directly to results such as $\operatorname{Var}(\hat\beta)=\sigma^2(X^\top X)^{-1}$ under the classical homoscedastic model.</p>
+      <p>It should not, however, be read as an instruction to calculate an inverse in production code.</p>
+    </section>
+
+    <section id="geometry">
+      <h2>3. The geometry: least squares is a projection</h2>
+      <p>Every fitted vector $X\beta$ lies in the column space of $X$. Usually the observed target vector $y$ does not. Least squares therefore asks for the reachable vector closest to $y$.</p>
+      <p>The normal equations can be rearranged as</p>
+      <div class="equation-box">$$X^\top(y-X\hat\beta)=0.$$</div>
+      <p>Thus the residual $e=y-\hat y$ is orthogonal to every column of $X$. The fitted vector $\hat y=X\hat\beta$ is the orthogonal projection of $y$ onto $\operatorname{col}(X)$.</p>
+
+      <figure>
+        <div class="fig">
+          <svg viewBox="0 0 720 330" role="img" aria-label="Orthogonal projection of y onto the column space of X">
+            <polygon points="105,245 470,285 625,205 260,165" fill="#eaf5fc" stroke="#a9cfe8" stroke-width="2"/>
+            <line x1="190" y1="225" x2="405" y2="198" stroke="#0b8fd8" stroke-width="4"/>
+            <line x1="405" y1="198" x2="380" y2="65" stroke="#d04c3f" stroke-width="4" stroke-dasharray="8 7"/>
+            <line x1="190" y1="225" x2="380" y2="65" stroke="#0d1b2a" stroke-width="3"/>
+            <circle cx="405" cy="198" r="6" fill="#0b8fd8"/><circle cx="380" cy="65" r="6" fill="#0d1b2a"/>
+            <text x="420" y="196" font-size="22" fill="#0a5f9e">ŷ</text>
+            <text x="392" y="55" font-size="22" fill="#0d1b2a">y</text>
+            <text x="418" y="128" font-size="18" fill="#b3392f">e = y − ŷ</text>
+            <text x="485" y="250" font-size="18" fill="#52606d">col(X)</text>
+            <path d="M405 198 l-15 -11 l-4 16" fill="none" stroke="#b3392f" stroke-width="2"/>
+          </svg>
+        </div>
+        <figcaption>Observation-space view: $\hat y$ is the closest point to $y$ in the column space of $X$, and the residual is perpendicular to that space.</figcaption>
+      </figure>
+
+      <p>This picture explains the word <em>normal</em>: the residual is normal to the subspace spanned by the predictors.</p>
+    </section>
+
+    <section id="numerics">
+      <h2>4. Why we do not compute $(X^\top X)^{-1}X^\top y$</h2>
+      <p>The textbook formula hides a numerical problem. Forming $X^\top X$ squares the 2-norm condition number:</p>
+      <div class="equation-box">$$\kappa_2(X^\top X)=\kappa_2(X)^2.$$</div>
+      <p>If two predictors are nearly linearly dependent, $X$ is ill-conditioned. Forming $X^\top X$ makes that problem substantially worse. Explicit matrix inversion then adds unnecessary work and additional floating-point error.</p>
+      <div class="warning"><span class="kicker">Practical rule.</span> Derive with the normal equations; solve with a least-squares routine based on a stable factorisation such as QR or SVD.</div>
+      <p>For an SVD</p>
+      $$X=U\Sigma V^\top,$$
+      <p>the least-squares solution can be written using the Moore–Penrose pseudoinverse:</p>
+      $$\hat\beta=X^+y=V\Sigma^+U^\top y.$$
+      <p>The singular values in $\Sigma$ expose rank deficiency directly. This route also gives a well-defined minimum-norm solution when the least-squares minimiser is not unique.</p>
+    </section>
+
+    <section id="example">
+      <h2>5. A worked example by hand</h2>
+      <p>Take three observations:</p>
+      $$ (x,y)=(1,2),(2,2),(3,4). $$
+      <p>For simple linear regression $\hat y=\beta_0+\beta_1x$,</p>
+      $$\bar x=2,\qquad \bar y=\frac83.$$
+      <p>The slope is</p>
+      $$\hat\beta_1=\frac{\sum_i(x_i-\bar x)(y_i-\bar y)}{\sum_i(x_i-\bar x)^2}=\frac{2}{2}=1,$$
+      <p>and the intercept is</p>
+      $$\hat\beta_0=\bar y-\hat\beta_1\bar x=\frac23.$$
+      <p>So</p>
+      <div class="equation-box">$$\hat y=\frac23+x.$$</div>
+      <p>The fitted values are $5/3,8/3,11/3$ and the residuals are $1/3,-2/3,1/3$. Their sum is zero because an intercept is present; the residual vector is also orthogonal to the predictor column, exactly as the normal equations require.</p>
+    </section>
+
+    <section id="collinearity">
+      <h2>6. When coefficients explode but predictions still look fine</h2>
+      <p>Multicollinearity is one of the clearest examples of why the linear-algebra view matters. Suppose</p>
+<pre><code>rng = np.random.default_rng(7)
+n = 80
+x1 = rng.normal(size=n)
+x2 = x1 + 1e-6 * rng.normal(size=n)
+X  = np.column_stack([x1, x2])
+y  = 3*x1 + 0.05*rng.normal(size=n)</code></pre>
+      <p>Here $x_2$ is almost a copy of $x_1$. A least-squares fit gives coefficients approximately</p>
+      <div class="equation-box">$$\hat\beta_1\approx 5900.64,\qquad \hat\beta_2\approx -5897.65.$$</div>
+      <p>Individually they look absurd. Their sum is about $2.992$, close to the true effective slope $3$, and the fitted RMSE is only about $0.0458$.</p>
+      <p>The design matrix has $\kappa_2(X)\approx2.12\times10^6$, while $\kappa_2(X^\top X)\approx4.49\times10^{12}$. Tiny perturbations can therefore cause large changes in the separate coefficients even while predictions remain stable.</p>
+      <div class="note"><span class="kicker">Interpretation.</span> Multicollinearity is primarily a coefficient-identification and variance problem. It need not destroy predictive accuracy inside the region supported by the data.</div>
+    </section>
+
+    <section id="python">
+      <h2>7. What Python actually does</h2>
+      <p>A from-scratch implementation should solve the least-squares problem directly rather than explicitly forming the inverse:</p>
+<pre><code>import numpy as np
+
+def fit_ols(X, y, fit_intercept=True):
+    X = np.asarray(X, dtype=float)
+    y = np.asarray(y, dtype=float)
+
+    if fit_intercept:
+        X = np.column_stack([np.ones(len(X)), X])
+
+    beta, residuals, rank, singular_values = np.linalg.lstsq(
+        X, y, rcond=None
+    )
+    return beta, rank, singular_values</code></pre>
+      <p><code>numpy.linalg.lstsq</code> returns the vector that minimises $\|y-X\beta\|_2$; if several minimisers exist, it returns the one with the smallest Euclidean norm.</p>
+      <p>For dense data, current scikit-learn <code>LinearRegression</code> also formulates the problem as ordinary least squares and delegates the numerical solve to <code>scipy.linalg.lstsq</code>. Sparse data use a different least-squares solver. The estimator additionally exposes the matrix rank and singular values for dense $X$.</p>
+<pre><code>from sklearn.linear_model import LinearRegression
+
+model = LinearRegression()
+model.fit(X, y)
+
+print(model.intercept_)
+print(model.coef_)
+print(model.rank_)
+print(model.singular_)</code></pre>
+      <p>The important distinction is between the <strong>estimator</strong> and the <strong>solver</strong>. Ordinary least squares defines the minimiser. QR, SVD and iterative least-squares methods are numerical routes to that minimiser.</p>
+    </section>
+
+    <section id="assumptions">
+      <h2>8. What assumptions belong to which claim?</h2>
+      <p>A useful way to avoid confusion is to separate fitting, unbiasedness, efficiency and inference.</p>
+      <table>
+        <thead><tr><th>Claim</th><th>What is needed</th></tr></thead>
+        <tbody>
+          <tr><td>OLS coefficients minimise RSS</td><td>No probabilistic assumption. This is an optimisation statement.</td></tr>
+          <tr><td>Unique coefficient vector</td><td>Full column rank of $X$.</td></tr>
+          <tr><td>$\mathbb E[\hat\beta\mid X]=\beta$</td><td>Correct linear mean specification and $\mathbb E[\varepsilon\mid X]=0$.</td></tr>
+          <tr><td>Gauss–Markov efficiency among linear unbiased estimators</td><td>Zero conditional mean plus homoscedastic, uncorrelated errors.</td></tr>
+          <tr><td>Exact small-sample $t$ and $F$ inference</td><td>Classical assumptions plus normally distributed errors.</td></tr>
+        </tbody>
+      </table>
+      <p>For prediction work, cross-validated error is usually the relevant test. For coefficient interpretation and uncertainty, the error structure and data-generating assumptions matter directly.</p>
+    </section>
+
+    <section id="summary">
+      <h2>9. Under the hood</h2>
+      <ul class="takeaways">
+        <li><code>fit()</code> solves $\min_\beta\|y-X\beta\|_2^2$.</li>
+        <li>The normal equations arise by setting the gradient of RSS to zero.</li>
+        <li>Geometrically, $\hat y$ is the orthogonal projection of $y$ onto $\operatorname{col}(X)$.</li>
+        <li>The closed-form inverse is a mathematical identity, not the preferred numerical algorithm.</li>
+        <li>QR/SVD-style least-squares solvers handle conditioning and rank more sensibly.</li>
+        <li>Multicollinearity can make individual coefficients unstable while predictions remain accurate.</li>
+      </ul>
+      <p>The next time <code>LinearRegression().fit(X, y)</code> returns almost instantly, there is a useful mental picture behind that call: a convex quadratic objective, a projection in $\mathbb R^n$, and a carefully implemented least-squares solve.</p>
+    </section>
+
+    <section class="refs">
+      <h2>References and implementation notes</h2>
+      <ul>
+        <li><a href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html">scikit-learn: <code>LinearRegression</code></a>.</li>
+        <li><a href="https://numpy.org/doc/stable/reference/generated/numpy.linalg.lstsq.html">NumPy: <code>numpy.linalg.lstsq</code></a>.</li>
+        <li>Golub, G. H. &amp; Van Loan, C. F. <em>Matrix Computations</em>, 4th ed., Johns Hopkins University Press, 2013.</li>
+        <li>Hastie, T., Tibshirani, R. &amp; Friedman, J. <em>The Elements of Statistical Learning</em>, 2nd ed., Springer, 2009.</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p><strong>What's Under the Hood?</strong> — the mathematics, optimisation and numerical methods behind machine-learning algorithms.</p>
+      <p><a href="../">Series index</a> · <a href="https://github.com/drmshoaib/whats-under-the-hood">GitHub repository</a></p>
+    </footer>
+  </main>
+</div>
+</body>
+</html>
