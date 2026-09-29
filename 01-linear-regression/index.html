@@ -317,10 +317,10 @@ $$ f(x) = \beta_0 + \beta_1 x_1 + \cdots + \beta_p x_p. $$
 <p><strong>Where it sits.</strong> Linear regression is <strong>supervised</strong> (we have labelled targets $y$), <strong>parametric</strong> (a fixed, finite set of parameters $\beta$), and used for <strong>regression</strong> (continuous $y$). It is the archetypal <em>low-variance, potentially-high-bias</em> model. In the landscape of the course it is the root of a family tree:</p>
 
 <ul>
-  <li>Replace the identity link with a sigmoid → <strong>logistic regression</strong> (<span class="plain-ref" title="coming in a later week">Lecture 2</span>).</li>
+  <li>Replace the identity link with a sigmoid → <strong>logistic regression</strong> (<span class="plain-ref" title="Lecture 2 is released in Week 2">coming in Week 2</span>).</li>
   <li>Add an $\ell_2$ penalty → <strong>ridge</strong>; an $\ell_1$ penalty → <strong>lasso</strong>.</li>
-  <li>Stack many of these with nonlinear activations → <strong>neural networks</strong> (<span class="plain-ref" title="coming in a later week">Lecture 19</span>).</li>
-  <li>Put a Gaussian prior on $\beta$ and integrate it out → <strong>Bayesian linear regression</strong>, whose kernelised limit is a <strong>Gaussian process</strong> (<span class="plain-ref" title="coming in a later week">Lecture 22</span>).</li>
+  <li>Stack many of these with nonlinear activations → <strong>neural networks</strong> (<span class="plain-ref" title="Lecture 19 is released in Week 23">coming in Week 23</span>).</li>
+  <li>Put a Gaussian prior on $\beta$ and integrate it out → <strong>Bayesian linear regression</strong>, whose kernelised limit is a <strong>Gaussian process</strong> (<span class="plain-ref" title="Lecture 17 is released in Week 17">coming in Week 17</span>).</li>
 </ul>
 
 <p><strong>Assumptions</strong> (the classical linear model, in increasing strength):</p>
@@ -663,9 +663,9 @@ $$ \mathbb{E}\big[(y_0 - \hat f(x_0))^2\big] = \underbrace{\big(\mathbb{E}[\hat 
   <li><strong>Skewed targets/features:</strong> log-transforming a right-skewed positive target often restores homoscedasticity and linearity simultaneously.</li>
 </ul>
 
-<p><strong>Scaling / standardisation:</strong> <em>Not required for plain OLS correctness</em> — the closed-form solution is invariant to linear rescaling of features (coefficients simply rescale to compensate). <strong>But</strong> it <em>is</em> required for (a) ridge/lasso, where the penalty is scale-dependent, (b) gradient-descent fitting, where it fixes conditioning and speeds convergence, and (c) comparing coefficient magnitudes as "importances." Contrast this with SVM/KNN (<span class="plain-ref" title="coming in a later week">Lectures 3</span>, 5) where scaling changes the <em>answer</em>, not just the numerics.</p>
+<p><strong>Scaling / standardisation:</strong> <em>Not required for plain OLS correctness</em> — the closed-form solution is invariant to linear rescaling of features (coefficients simply rescale to compensate). <strong>But</strong> it <em>is</em> required for (a) ridge/lasso, where the penalty is scale-dependent, (b) gradient-descent fitting, where it fixes conditioning and speeds convergence, and (c) comparing coefficient magnitudes as "importances." Contrast this with SVM/KNN (<span class="plain-ref" title="Lecture 3 is released in Week 3">coming in Week 3</span>, 5) where scaling changes the <em>answer</em>, not just the numerics.</p>
 
-<p><strong>Time ordering / stationarity:</strong> only relevant if data are temporal — then independence of errors is suspect and you'd move toward time-series methods (<span class="plain-ref" title="coming in a later week">Lecture 18</span>).</p>
+<p><strong>Time ordering / stationarity:</strong> only relevant if data are temporal — then independence of errors is suspect and you'd move toward time-series methods (<span class="plain-ref" title="Lecture 18 is released in Week 18">coming in Week 18</span>).</p>
 
 <h2 id="s14">14. Evaluation</h2>
 
@@ -764,7 +764,7 @@ $$ \mathbb{E}\big[(y_0 - \hat f(x_0))^2\big] = \underbrace{\big(\mathbb{E}[\hat 
 
 <p><strong>Linear vs polynomial/spline regression.</strong> Same machinery, richer features; trades bias for variance and interpretability.</p>
 
-<p><strong>Linear regression → Logistic regression (<span class="plain-ref" title="coming in a later week">Lecture 2</span>).</strong> Same linear predictor $x^\top\beta$, but wrapped in a sigmoid and fitted by maximising a Bernoulli (not Gaussian) likelihood. Linear regression is to continuous targets what logistic is to binary — both are <em>generalised linear models</em>.</p>
+<p><strong>Linear regression → Logistic regression (<span class="plain-ref" title="Lecture 2 is released in Week 2">coming in Week 2</span>).</strong> Same linear predictor $x^\top\beta$, but wrapped in a sigmoid and fitted by maximising a Bernoulli (not Gaussian) likelihood. Linear regression is to continuous targets what logistic is to binary — both are <em>generalised linear models</em>.</p>
 
 <p><strong>Linear regression vs tree ensembles / neural nets.</strong> Trees and nets capture nonlinearities and interactions <em>automatically</em> (high capacity, low interpretability, need more data); linear regression needs you to hand-craft those, but rewards you with interpretability, uncertainty, and data efficiency. On genuinely linear, low-dimensional, small-$n$ problems, linear regression often <em>wins</em>.</p>
 
@@ -1071,7 +1071,7 @@ Replace squared loss with Huber loss (quadratic near zero, linear in the tails),
 </tbody>
 </table>
 
-<p><strong>Connections to carry forward:</strong> the linear predictor $x^\top\beta$, the least-squares/MLE equivalence, the projection geometry, and the bias–variance trade-off introduced here reappear throughout the course — in <strong>logistic regression</strong> (swap Gaussian for Bernoulli likelihood, <span class="plain-ref" title="coming in a later week">Lecture 2</span>), in <strong>ridge/lasso</strong> (regularisation as the universal complexity control), in <strong>neural networks</strong> (stacked linear-plus-nonlinearity layers trained by the same SGD, <span class="plain-ref" title="coming in a later week">Lecture 19</span>), and in <strong>Gaussian processes</strong> (Bayesian linear regression in an infinite feature space, <span class="plain-ref" title="coming in a later week">Lecture 22</span>).</p>
+<p><strong>Connections to carry forward:</strong> the linear predictor $x^\top\beta$, the least-squares/MLE equivalence, the projection geometry, and the bias–variance trade-off introduced here reappear throughout the course — in <strong>logistic regression</strong> (swap Gaussian for Bernoulli likelihood, <span class="plain-ref" title="Lecture 2 is released in Week 2">coming in Week 2</span>), in <strong>ridge/lasso</strong> (regularisation as the universal complexity control), in <strong>neural networks</strong> (stacked linear-plus-nonlinearity layers trained by the same SGD, <span class="plain-ref" title="Lecture 19 is released in Week 23">coming in Week 23</span>), and in <strong>Gaussian processes</strong> (Bayesian linear regression in an infinite feature space, <span class="plain-ref" title="Lecture 17 is released in Week 17">coming in Week 17</span>).</p>
 </main>
 </div>
 </body>
