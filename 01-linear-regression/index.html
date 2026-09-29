@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="What's Under the Hood? #01 — Linear Regression: what does fit() actually solve? Least squares, normal equations, projection geometry, conditioning and numerical implementation.">
+  <meta name="description" content="What's Under the Hood? #01 — Linear Regression: least squares, Gaussian likelihood, normal equations, projection geometry, Gauss–Markov, inference, conditioning, QR, SVD and implementation.">
   <title>#01 Linear Regression — What's Under the Hood?</title>
   <script>
     window.MathJax = {
@@ -16,43 +16,43 @@
     :root {
       color-scheme: light;
       --ink:#0d1b2a; --muted:#52606d; --accent:#0b8fd8; --accent-dark:#0a5f9e;
-      --line:#d9e2ec; --panel:#f7fafc; --code:#eef3f7; --warn:#fff8e6;
+      --line:#d9e2ec; --panel:#f7fafc; --code:#eef3f7; --warn:#fff8e6; --good:#eef9f1;
     }
     *{box-sizing:border-box} html{scroll-behavior:smooth}
-    body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:#fff;line-height:1.68}
-    .layout{display:grid;grid-template-columns:260px minmax(0,900px);gap:54px;max-width:1240px;margin:0 auto;padding:42px 30px 90px}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:#fff;line-height:1.7}
+    .layout{display:grid;grid-template-columns:280px minmax(0,930px);gap:54px;max-width:1290px;margin:0 auto;padding:42px 30px 90px}
     aside{position:sticky;top:24px;align-self:start;max-height:calc(100vh - 48px);overflow:auto;padding-right:18px}
     .series{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink);font-weight:700;margin-bottom:22px}
     .series img{width:50px;height:50px;border-radius:8px}
     .back{display:inline-block;margin-bottom:22px;color:var(--accent-dark);font-size:.9rem}
     nav{border-top:1px solid var(--line);padding-top:16px}
     nav strong{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-    nav ol{padding-left:1.25rem;margin:.7rem 0 0;font-size:.86rem}
-    nav li{margin:.42rem 0} nav a{color:var(--muted);text-decoration:none} nav a:hover{color:var(--accent-dark)}
+    nav ol{padding-left:1.25rem;margin:.7rem 0 0;font-size:.84rem}
+    nav li{margin:.40rem 0} nav a{color:var(--muted);text-decoration:none} nav a:hover{color:var(--accent-dark)}
     main{min-width:0}
     .eyebrow{margin:0 0 8px;color:var(--accent-dark);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:.82rem}
     h1{font-size:clamp(2.3rem,6vw,4.4rem);line-height:1.04;letter-spacing:-.04em;margin:0 0 18px}
-    .subtitle{font-size:1.32rem;color:var(--muted);margin:0 0 26px;max-width:760px}
+    .subtitle{font-size:1.32rem;color:var(--muted);margin:0 0 26px;max-width:780px}
     .meta{font-size:.9rem;color:var(--muted);padding-bottom:28px;border-bottom:1px solid var(--line)}
-    h2{font-size:1.8rem;line-height:1.2;margin:2.4em 0 .7em;padding-top:.2em} h3{font-size:1.25rem;margin:1.7em 0 .5em}
+    h2{font-size:1.82rem;line-height:1.2;margin:2.45em 0 .7em;padding-top:.2em} h3{font-size:1.28rem;margin:1.85em 0 .5em}
     p{margin:.9em 0} a{color:var(--accent-dark)}
-    .lead{font-size:1.08rem}
-    .equation-box,.note,.warning{border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:1.35em 0;background:var(--panel)}
-    .equation-box{text-align:center;font-size:1.07rem}
-    .warning{background:var(--warn)}
+    .lead{font-size:1.09rem}
+    .equation-box,.note,.warning,.result{border:1px solid var(--line);border-radius:12px;padding:15px 20px;margin:1.4em 0;background:var(--panel)}
+    .equation-box{text-align:center;font-size:1.05rem}.warning{background:var(--warn)}.result{background:var(--good)}
     .kicker{font-weight:700;color:var(--accent-dark)}
     code{font-family:Consolas,"Liberation Mono",monospace;background:var(--code);padding:.08em .34em;border-radius:4px;font-size:.9em}
     pre{background:#0f1720;color:#edf4fa;border-radius:12px;padding:18px 20px;overflow:auto;line-height:1.5;font-size:.88rem}
     pre code{background:none;padding:0;color:inherit}
-    table{border-collapse:collapse;width:100%;margin:1.4em 0;font-size:.93rem;display:block;overflow:auto}
+    table{border-collapse:collapse;width:100%;margin:1.4em 0;font-size:.92rem;display:block;overflow:auto}
     th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top} th{background:var(--panel)}
     figure{margin:1.8em 0}.fig{border:1px solid var(--line);border-radius:12px;padding:18px;background:var(--panel)}
-    figure svg{display:block;width:100%;height:auto}figcaption{color:var(--muted);font-size:.86rem;margin-top:9px;text-align:center}
+    figure svg{display:block;width:100%;height:auto} figcaption{color:var(--muted);font-size:.86rem;margin-top:9px;text-align:center}
     .takeaways{border-left:4px solid var(--accent);padding:4px 0 4px 18px;margin:1.5em 0}.takeaways li{margin:.45em 0}
     .refs{font-size:.92rem;color:var(--muted)}
+    .small{font-size:.92rem;color:var(--muted)}
     footer{margin-top:55px;padding-top:22px;border-top:1px solid var(--line);color:var(--muted);font-size:.92rem}
     mjx-container{overflow-x:auto;overflow-y:hidden;max-width:100%}
-    @media(max-width:860px){.layout{grid-template-columns:1fr;padding:26px 20px 70px;gap:18px}aside{position:static;max-height:none;padding-right:0}nav{display:none}.series{margin-bottom:8px}.back{margin-bottom:4px}}
+    @media(max-width:900px){.layout{grid-template-columns:1fr;padding:26px 20px 70px;gap:18px}aside{position:static;max-height:none;padding-right:0}nav{display:none}.series{margin-bottom:8px}.back{margin-bottom:4px}}
   </style>
 </head>
 <body>
@@ -64,14 +64,20 @@
       <strong>Lecture 01</strong>
       <ol>
         <li><a href="#question">The question behind fit()</a></li>
-        <li><a href="#objective">The least-squares objective</a></li>
-        <li><a href="#derivation">From loss to normal equations</a></li>
-        <li><a href="#geometry">The geometry</a></li>
-        <li><a href="#numerics">Why we do not invert XᵀX</a></li>
+        <li><a href="#formulation">Model and least squares</a></li>
+        <li><a href="#likelihood">Gaussian likelihood</a></li>
+        <li><a href="#normal">Normal equations and Hessian</a></li>
+        <li><a href="#projection">Projection and hat matrix</a></li>
+        <li><a href="#properties">Estimator properties</a></li>
+        <li><a href="#gauss-markov">Gauss–Markov theorem</a></li>
+        <li><a href="#inference">Distribution and inference</a></li>
+        <li><a href="#numerics">Conditioning, QR and SVD</a></li>
+        <li><a href="#optimisation">Gradient and Newton views</a></li>
         <li><a href="#example">Worked example</a></li>
-        <li><a href="#collinearity">When coefficients explode</a></li>
+        <li><a href="#collinearity">Multicollinearity</a></li>
         <li><a href="#python">What Python actually does</a></li>
-        <li><a href="#assumptions">Assumptions and interpretation</a></li>
+        <li><a href="#assumptions">Which assumptions support which claims?</a></li>
+        <li><a href="#ridge">Ridge as a numerical/statistical extension</a></li>
         <li><a href="#summary">Under the hood</a></li>
       </ol>
     </nav>
@@ -90,42 +96,151 @@
       <p class="lead">A linear regression model can be fitted in one line:</p>
 <pre><code>from sklearn.linear_model import LinearRegression
 model = LinearRegression().fit(X, y)</code></pre>
-      <p>The API is deliberately simple. The computation underneath it is a compact piece of applied mathematics: an optimisation problem, an orthogonal projection and a numerical linear-algebra problem are all hiding inside <code>fit()</code>.</p>
-      <p>This lecture follows that chain. The aim is to understand what is solved, why the familiar closed form appears, and why good software usually does <em>not</em> evaluate that closed form literally.</p>
+      <p>The API is deliberately simple. Underneath it sit several distinct mathematical objects: a convex optimisation problem, a projection in an $n$-dimensional vector space, a statistical estimator with a sampling distribution, and a numerical linear-algebra problem whose conditioning matters.</p>
+      <p>This lecture develops those pieces from first principles and then reconnects them to what a production library actually computes.</p>
+
+      <figure>
+        <div class="fig">
+          <svg viewBox="0 0 720 330" role="img" aria-label="Scatterplot with fitted linear regression line and vertical residuals">
+            <line x1="70" y1="275" x2="665" y2="275" stroke="#52606d" stroke-width="2"/>
+            <line x1="70" y1="275" x2="70" y2="40" stroke="#52606d" stroke-width="2"/>
+            <line x1="95" y1="250" x2="625" y2="80" stroke="#0b8fd8" stroke-width="4"/>
+            <g stroke="#b3392f" stroke-width="2" stroke-dasharray="5 4">
+              <line x1="125" y1="228" x2="125" y2="240"/>
+              <line x1="210" y1="205" x2="210" y2="213"/>
+              <line x1="300" y1="188" x2="300" y2="184"/>
+              <line x1="395" y1="140" x2="395" y2="153"/>
+              <line x1="505" y1="132" x2="505" y2="118"/>
+              <line x1="600" y1="79" x2="600" y2="87"/>
+            </g>
+            <g fill="#0d1b2a">
+              <circle cx="125" cy="228" r="6"/><circle cx="210" cy="205" r="6"/><circle cx="300" cy="188" r="6"/>
+              <circle cx="395" cy="140" r="6"/><circle cx="505" cy="132" r="6"/><circle cx="600" cy="79" r="6"/>
+            </g>
+            <text x="535" y="98" font-size="18" fill="#0a5f9e">fitted line</text>
+            <text x="610" y="303" font-size="18" fill="#52606d">x</text>
+            <text x="45" y="55" font-size="18" fill="#52606d">y</text>
+          </svg>
+        </div>
+        <figcaption>The familiar picture: OLS minimises the sum of squared vertical residuals. The deeper picture later in the lecture is an orthogonal projection in observation space.</figcaption>
+      </figure>
     </section>
 
-    <section id="objective">
-      <h2>1. The least-squares objective</h2>
-      <p>For $n$ observations and $p$ predictors, write the linear model as</p>
-      <div class="equation-box">$$y=X\beta+\varepsilon,$$</div>
-      <p>where $X\in\mathbb{R}^{n\times(p+1)}$ contains a column of ones if an intercept is fitted, $\beta$ is the coefficient vector and $\varepsilon$ is the error vector.</p>
-      <p>Ordinary least squares chooses the coefficients that minimise the squared Euclidean length of the residual vector:</p>
-      <div class="equation-box">$$\hat\beta=\arg\min_{\beta}\;\|y-X\beta\|_2^2.$$</div>
-      <p>Equivalently, it minimises</p>
-      <div class="equation-box">$$\operatorname{RSS}(\beta)=\sum_{i=1}^{n}(y_i-x_i^\top\beta)^2.$$</div>
-      <p>The square matters. It gives a smooth convex quadratic objective, weights large residuals strongly, and under independent Gaussian errors makes least squares identical to maximum-likelihood estimation.</p>
+    <section id="formulation">
+      <h2>1. Model and least-squares formulation</h2>
+      <p>Suppose we observe $n$ responses $y_i$ and $p$ predictors. With an intercept, define the augmented design matrix</p>
+      $$
+      X=\begin{pmatrix}
+      1 & x_{11} & \cdots & x_{1p}\\
+      1 & x_{21} & \cdots & x_{2p}\\
+      \vdots & \vdots & & \vdots\\
+      1 & x_{n1} & \cdots & x_{np}
+      \end{pmatrix}\in\mathbb R^{n\times(p+1)},\qquad
+      y=\begin{pmatrix}y_1\\ \vdots\\ y_n\end{pmatrix},\qquad
+      \beta=\begin{pmatrix}\beta_0\\ \vdots\\ \beta_p\end{pmatrix}.
+      $$
+      <p>The linear model is</p>
+      <div class="equation-box">$$y=X\beta+\varepsilon.$$</div>
+      <p>"Linear" here means linear in the parameters. A model such as</p>
+      $$y=\beta_0+\beta_1x+\beta_2x^2+\varepsilon$$
+      <p>is still a linear model because the coefficients enter linearly.</p>
+      <p>For a proposed coefficient vector $\beta$, the residual vector is</p>
+      $$r(\beta)=y-X\beta.$$
+      <p>Ordinary least squares chooses $\beta$ to minimise its squared Euclidean norm:</p>
+      <div class="equation-box">$$\hat\beta=\arg\min_\beta\;\|y-X\beta\|_2^2.$$</div>
+      <p>Equivalently,</p>
+      $$\operatorname{RSS}(\beta)=\sum_{i=1}^n(y_i-x_i^\top\beta)^2=(y-X\beta)^\top(y-X\beta).$$
+      <p>This optimisation statement needs no probability model. OLS can be defined purely as the minimiser of a quadratic loss.</p>
     </section>
 
-    <section id="derivation">
-      <h2>2. From the loss to the normal equations</h2>
-      <p>Expand the objective:</p>
-      $$\operatorname{RSS}(\beta)=y^\top y-2\beta^\top X^\top y+\beta^\top X^\top X\beta.$$
-      <p>Differentiating with respect to $\beta$ gives</p>
+    <section id="likelihood">
+      <h2>2. Why squared error appears: the Gaussian likelihood</h2>
+      <p>Now add a probabilistic model. Suppose</p>
+      $$\varepsilon\mid X\sim\mathcal N(0,\sigma^2I_n),$$
+      <p>so that each observation satisfies</p>
+      $$y_i\mid x_i\sim\mathcal N(x_i^\top\beta,\sigma^2).$$
+      <p>The conditional density is</p>
+      $$p(y_i\mid x_i,\beta,\sigma^2)=\frac{1}{\sqrt{2\pi\sigma^2}}
+      \exp\!\left[-\frac{(y_i-x_i^\top\beta)^2}{2\sigma^2}\right].$$
+      <p>Assuming conditional independence, the likelihood is</p>
+      $$L(\beta,\sigma^2)=\prod_{i=1}^n p(y_i\mid x_i,\beta,\sigma^2).$$
+      <p>Taking logarithms,</p>
+      $$
+      \ell(\beta,\sigma^2)
+      =-\frac n2\log(2\pi\sigma^2)
+       -\frac{1}{2\sigma^2}\sum_{i=1}^n(y_i-x_i^\top\beta)^2.
+      $$
+      <p>Therefore, for fixed $\sigma^2$,</p>
+      <div class="result">$$\arg\max_\beta\ell(\beta,\sigma^2)=\arg\min_\beta\operatorname{RSS}(\beta).$$</div>
+      <p>Thus OLS is the maximum-likelihood estimator of $\beta$ under independent Gaussian errors. The optimisation definition is more general; Gaussianity is what gives least squares this particular likelihood interpretation.</p>
+    </section>
+
+    <section id="normal">
+      <h2>3. Deriving the normal equations</h2>
+      <p>Start from</p>
+      $$\operatorname{RSS}(\beta)=(y-X\beta)^\top(y-X\beta).$$
+      <p>Expand:</p>
+      $$
+      \operatorname{RSS}(\beta)
+      =y^\top y-y^\top X\beta-\beta^\top X^\top y+\beta^\top X^\top X\beta.
+      $$
+      <p>The two middle terms are equal because each is a scalar, so</p>
+      $$
+      \operatorname{RSS}(\beta)
+      =y^\top y-2\beta^\top X^\top y+\beta^\top X^\top X\beta.
+      $$
+      <p>Using $\nabla_\beta(\beta^\top A\beta)=(A+A^\top)\beta$ and the symmetry of $X^\top X$ gives</p>
       $$\nabla_\beta\operatorname{RSS}=-2X^\top y+2X^\top X\beta.$$
-      <p>At the minimum the gradient is zero, hence</p>
+      <p>At a stationary point,</p>
+      $$-2X^\top y+2X^\top X\hat\beta=0,$$
+      hence
       <div class="equation-box">$$X^\top X\hat\beta=X^\top y.$$</div>
-      <p>These are the <strong>normal equations</strong>. If $X$ has full column rank, $X^\top X$ is invertible and algebra gives</p>
+      <p>These are the <strong>normal equations</strong>. If $X$ has full column rank, then $X^\top X$ is positive definite and invertible, giving</p>
       <div class="equation-box">$$\hat\beta=(X^\top X)^{-1}X^\top y.$$</div>
-      <p>This expression is mathematically useful. It tells us how the estimator depends on $X$ and $y$, and it leads directly to results such as $\operatorname{Var}(\hat\beta)=\sigma^2(X^\top X)^{-1}$ under the classical homoscedastic model.</p>
-      <p>It should not, however, be read as an instruction to calculate an inverse in production code.</p>
+
+      <h3>3.1 Why the stationary point is the global minimum</h3>
+      <p>The Hessian is</p>
+      $$\nabla_\beta^2\operatorname{RSS}=2X^\top X.$$
+      <p>For any vector $z$,</p>
+      $$z^\top X^\top Xz=\|Xz\|_2^2\ge0,$$
+      <p>so $X^\top X$ is always positive semidefinite. If $X$ has full column rank, $Xz=0$ implies $z=0$, hence</p>
+      $$z^\top X^\top Xz>0\qquad(z\ne0),$$
+      <p>so the Hessian is positive definite and the objective is strictly convex. Therefore the solution is the unique global minimiser.</p>
+
+      <h3>3.2 Why they are called "normal" equations</h3>
+      <p>Rearrange the normal equations:</p>
+      $$X^\top(y-X\hat\beta)=0.$$
+      <p>Writing $\hat e=y-X\hat\beta$ gives</p>
+      <div class="result">$$X^\top\hat e=0.$$</div>
+      <p>Every column of $X$ is orthogonal to the residual vector. The residual is therefore normal to the subspace spanned by the columns of $X$.</p>
     </section>
 
-    <section id="geometry">
-      <h2>3. The geometry: least squares is a projection</h2>
-      <p>Every fitted vector $X\beta$ lies in the column space of $X$. Usually the observed target vector $y$ does not. Least squares therefore asks for the reachable vector closest to $y$.</p>
-      <p>The normal equations can be rearranged as</p>
-      <div class="equation-box">$$X^\top(y-X\hat\beta)=0.$$</div>
-      <p>Thus the residual $e=y-\hat y$ is orthogonal to every column of $X$. The fitted vector $\hat y=X\hat\beta$ is the orthogonal projection of $y$ onto $\operatorname{col}(X)$.</p>
+    <section id="projection">
+      <h2>4. Projection geometry and the hat matrix</h2>
+      <p>The fitted values are</p>
+      $$
+      \hat y=X\hat\beta
+      =X(X^\top X)^{-1}X^\top y.
+      $$
+      <p>Define</p>
+      <div class="equation-box">$$H:=X(X^\top X)^{-1}X^\top.$$</div>
+      <p>Then $\hat y=Hy$. The matrix $H$ is the <strong>hat matrix</strong>: it puts the hat on $y$.</p>
+      <p>It is an orthogonal projector onto $\operatorname{col}(X)$. Two properties prove this directly.</p>
+      <p><strong>Symmetry:</strong></p>
+      $$
+      H^\top=\left[X(X^\top X)^{-1}X^\top\right]^\top
+      =X(X^\top X)^{-1}X^\top=H.
+      $$
+      <p><strong>Idempotence:</strong></p>
+      $$
+      H^2=X(X^\top X)^{-1}\underbrace{X^\top X}_{\text{cancels}}(X^\top X)^{-1}X^\top=H.
+      $$
+      <p>Hence projecting twice changes nothing. The residual vector is</p>
+      $$\hat e=(I-H)y,$$
+      <p>and $I-H$ is the complementary projector onto $\operatorname{col}(X)^\perp$.</p>
+      <p>Because</p>
+      $$H(I-H)=H-H^2=0,$$
+      <p>we have $\hat y^\top\hat e=0$. Fitted values and residuals are orthogonal.</p>
 
       <figure>
         <div class="fig">
@@ -142,59 +257,290 @@ model = LinearRegression().fit(X, y)</code></pre>
             <path d="M405 198 l-15 -11 l-4 16" fill="none" stroke="#b3392f" stroke-width="2"/>
           </svg>
         </div>
-        <figcaption>Observation-space view: $\hat y$ is the closest point to $y$ in the column space of $X$, and the residual is perpendicular to that space.</figcaption>
+        <figcaption>Observation-space view: $\hat y$ is the orthogonal projection of $y$ onto $\operatorname{col}(X)$; the residual lies in the orthogonal complement.</figcaption>
       </figure>
 
-      <p>This picture explains the word <em>normal</em>: the residual is normal to the subspace spanned by the predictors.</p>
+      <h3>4.1 Rank, trace and degrees of freedom</h3>
+      <p>An idempotent matrix has eigenvalues only $0$ or $1$. If $X$ has full column rank $p+1$, then</p>
+      $$\operatorname{rank}(H)=p+1,$$
+      and therefore
+      $$\operatorname{tr}(H)=p+1.$$
+      <p>This is the number of fitted parameters. The residual projector $I-H$ has rank</p>
+      $$n-(p+1)=n-p-1,$$
+      <p>which is the residual degrees of freedom.</p>
+
+      <h3>4.2 The centred ANOVA decomposition</h3>
+      <p>With an intercept in the model, define $y_c=y-\bar y\mathbf 1$ and $\hat y_c=\hat y-\bar y\mathbf 1$. Since $\hat y_c\perp\hat e$,</p>
+      $$\|y_c\|_2^2=\|\hat y_c\|_2^2+\|\hat e\|_2^2,$$
+      i.e.
+      $$\mathrm{TSS}=\mathrm{ESS}+\mathrm{RSS}.$$
+      <p>This gives the familiar</p>
+      $$R^2=1-\frac{\mathrm{RSS}}{\mathrm{TSS}}=\frac{\mathrm{ESS}}{\mathrm{TSS}}.$$
+    </section>
+
+    <section id="properties">
+      <h2>5. OLS as a statistical estimator</h2>
+      <p>Assume the data follow</p>
+      $$y=X\beta+\varepsilon,\qquad \mathbb E[\varepsilon\mid X]=0.$$
+      <p>Substitute this into the OLS estimator:</p>
+      $$
+      \hat\beta
+      =(X^\top X)^{-1}X^\top(X\beta+\varepsilon)
+      =\beta+(X^\top X)^{-1}X^\top\varepsilon.
+      $$
+
+      <h3>5.1 Unbiasedness</h3>
+      <p>Conditioning on $X$,</p>
+      $$
+      \mathbb E[\hat\beta\mid X]
+      =\beta+(X^\top X)^{-1}X^\top\mathbb E[\varepsilon\mid X]
+      =\beta.
+      $$
+      <div class="result">$$\boxed{\mathbb E[\hat\beta\mid X]=\beta}$$</div>
+
+      <h3>5.2 Covariance</h3>
+      <p>If, in addition,</p>
+      $$\operatorname{Var}(\varepsilon\mid X)=\sigma^2I,$$
+      then</p>
+      $$
+      \begin{aligned}
+      \operatorname{Var}(\hat\beta\mid X)
+      &=\operatorname{Var}\!\left((X^\top X)^{-1}X^\top\varepsilon\mid X\right)\\
+      &=(X^\top X)^{-1}X^\top(\sigma^2I)X(X^\top X)^{-1}\\
+      &=\sigma^2(X^\top X)^{-1}.
+      \end{aligned}
+      $$
+      <div class="equation-box">$$\operatorname{Var}(\hat\beta\mid X)=\sigma^2(X^\top X)^{-1}.$$</div>
+      <p>This formula connects statistical uncertainty directly to the geometry of the design matrix. If $X^\top X$ is nearly singular, some coefficient variances become very large.</p>
+    </section>
+
+    <section id="gauss-markov">
+      <h2>6. Gauss–Markov: why OLS is BLUE</h2>
+      <p>Under zero conditional mean, homoscedasticity and uncorrelated errors, OLS is the <strong>Best Linear Unbiased Estimator</strong>: among estimators linear in $y$ and unbiased for $\beta$, it has the smallest covariance matrix in the positive-semidefinite sense.</p>
+      <p>Let another linear estimator be</p>
+      $$\tilde\beta=Cy.$$
+      <p>Unbiasedness for every $\beta$ requires</p>
+      $$\mathbb E[Cy\mid X]=CX\beta=\beta,$$
+      hence
+      $$CX=I.$$
+      <p>Write</p>
+      $$C=(X^\top X)^{-1}X^\top+D.$$
+      <p>Since both $C$ and $(X^\top X)^{-1}X^\top$ are unbiased,</p>
+      $$DX=0.$$
+      <p>Now</p>
+      $$
+      \operatorname{Var}(\tilde\beta\mid X)=\sigma^2CC^\top.
+      $$
+      Substituting the decomposition of $C$ gives
+      $$
+      \begin{aligned}
+      CC^\top
+      &=\left[(X^\top X)^{-1}X^\top+D\right]
+        \left[X(X^\top X)^{-1}+D^\top\right]\\
+      &=(X^\top X)^{-1}+DD^\top,
+      \end{aligned}
+      $$
+      <p>because the cross terms vanish when $DX=0$. Therefore</p>
+      <div class="result">
+      $$
+      \operatorname{Var}(\tilde\beta\mid X)-\operatorname{Var}(\hat\beta\mid X)
+      =\sigma^2DD^\top\succeq0.
+      $$
+      </div>
+      <p>No normality assumption is needed for this result. It compares OLS with <em>linear unbiased</em> estimators; it does not say a biased estimator such as ridge cannot have lower mean-squared error.</p>
+    </section>
+
+    <section id="inference">
+      <h2>7. Sampling distribution and inference</h2>
+      <p>If</p>
+      $$\varepsilon\mid X\sim\mathcal N(0,\sigma^2I),$$
+      then $\hat\beta$ is an affine transformation of a Gaussian vector, so</p>
+      <div class="equation-box">
+      $$\hat\beta\mid X\sim\mathcal N\!\left(\beta,\sigma^2(X^\top X)^{-1}\right).$$
+      </div>
+      <p>The residual sum of squares satisfies</p>
+      $$\frac{\mathrm{RSS}}{\sigma^2}\sim\chi^2_{n-p-1},$$
+      and is independent of $\hat\beta$. Hence the unbiased estimator</p>
+      $$s^2=\frac{\mathrm{RSS}}{n-p-1}$$
+      can replace $\sigma^2$ in coefficient standard errors.</p>
+      <p>For coefficient $j$,</p>
+      $$\operatorname{SE}(\hat\beta_j)=s\sqrt{[(X^\top X)^{-1}]_{jj}},$$
+      and
+      $$
+      \frac{\hat\beta_j-\beta_j}{\operatorname{SE}(\hat\beta_j)}
+      \sim t_{n-p-1}.
+      $$
+      <p>A two-sided $(1-\alpha)$ confidence interval is therefore</p>
+      $$
+      \hat\beta_j\pm t_{1-\alpha/2,n-p-1}\operatorname{SE}(\hat\beta_j).
+      $$
+
+      <h3>7.1 Mean-response and prediction intervals</h3>
+      <p>For a new augmented predictor vector $x_*$, the fitted mean is</p>
+      $$\hat y_*=x_*^\top\hat\beta.$$
+      <p>Its variance due to coefficient uncertainty is</p>
+      $$\sigma^2x_*^\top(X^\top X)^{-1}x_*.$$
+      <p>A new observation also contains fresh noise, so</p>
+      $$
+      \operatorname{Var}(y_* - \hat y_*\mid X,x_*)
+      =\sigma^2\left[1+x_*^\top(X^\top X)^{-1}x_*\right].
+      $$
+      <p>This is why a prediction interval for a single future observation is wider than a confidence interval for the conditional mean.</p>
     </section>
 
     <section id="numerics">
-      <h2>4. Why we do not compute $(X^\top X)^{-1}X^\top y$</h2>
-      <p>The textbook formula hides a numerical problem. Forming $X^\top X$ squares the 2-norm condition number:</p>
+      <h2>8. Numerical linear algebra: why the textbook inverse is not the algorithm</h2>
+      <p>The identity</p>
+      $$\hat\beta=(X^\top X)^{-1}X^\top y$$
+      is useful for theory. Numerically, explicitly forming the inverse is usually a poor route.</p>
+
+      <h3>8.1 Conditioning</h3>
+      <p>For full-rank $X$, the 2-norm condition number is</p>
+      $$\kappa_2(X)=\frac{\sigma_{\max}(X)}{\sigma_{\min}(X)}.$$
+      <p>The singular values of $X^\top X$ are the squared singular values of $X$, so</p>
       <div class="equation-box">$$\kappa_2(X^\top X)=\kappa_2(X)^2.$$</div>
-      <p>If two predictors are nearly linearly dependent, $X$ is ill-conditioned. Forming $X^\top X$ makes that problem substantially worse. Explicit matrix inversion then adds unnecessary work and additional floating-point error.</p>
-      <div class="warning"><span class="kicker">Practical rule.</span> Derive with the normal equations; solve with a least-squares routine based on a stable factorisation such as QR or SVD.</div>
-      <p>For an SVD</p>
-      $$X=U\Sigma V^\top,$$
-      <p>the least-squares solution can be written using the Moore–Penrose pseudoinverse:</p>
-      $$\hat\beta=X^+y=V\Sigma^+U^\top y.$$
-      <p>The singular values in $\Sigma$ expose rank deficiency directly. This route also gives a well-defined minimum-norm solution when the least-squares minimiser is not unique.</p>
+      <p>Thus forming the normal-equation matrix squares the conditioning problem. Near-collinear predictors make the smallest singular value small; squaring it makes the numerical separation worse.</p>
+
+      <h3>8.2 QR factorisation</h3>
+      <p>For full-column-rank $X$, let the thin QR factorisation be</p>
+      $$X=QR,$$
+      where $Q^\top Q=I$ and $R$ is upper triangular. Decompose $y$ into a component in $\operatorname{col}(Q)$ and an orthogonal remainder. Then</p>
+      $$
+      \|y-X\beta\|_2^2
+      =\|Q^\top y-R\beta\|_2^2+\|(I-QQ^\top)y\|_2^2.
+      $$
+      <p>The second term does not depend on $\beta$, so minimising the residual norm reduces to</p>
+      $$R\hat\beta=Q^\top y.$$
+      <p>We solve this triangular system by back-substitution. QR avoids constructing $X^\top X$ and therefore avoids squaring its condition number.</p>
+
+      <h3>8.3 Singular value decomposition</h3>
+      <p>Let</p>
+      $$X=U\Sigma V^\top.$$
+      <p>The Moore–Penrose pseudoinverse is</p>
+      $$X^+=V\Sigma^+U^\top,$$
+      so the minimum-norm least-squares solution is</p>
+      <div class="equation-box">$$\hat\beta=X^+y=V\Sigma^+U^\top y.$$</div>
+      <p>SVD makes numerical rank explicit through the singular values. It remains well defined when $X$ is rank-deficient, where the normal-equation inverse does not exist.</p>
+
+      <div class="warning"><span class="kicker">Practical rule.</span> The normal equations are excellent for derivation. Numerical software should solve the least-squares problem through a stable factorisation or an appropriate iterative least-squares method.</div>
+    </section>
+
+    <section id="optimisation">
+      <h2>9. The optimisation view: gradient descent and Newton's method</h2>
+      <p>It is useful to rescale the objective as</p>
+      $$J(\beta)=\frac{1}{2n}\|y-X\beta\|_2^2.$$
+      <p>Then</p>
+      $$\nabla J(\beta)=\frac1nX^\top(X\beta-y),$$
+      and
+      $$\nabla^2J(\beta)=\frac1nX^\top X.$$
+
+      <h3>9.1 Gradient descent</h3>
+      <p>The batch update is</p>
+      <div class="equation-box">$$\beta_{k+1}=\beta_k-\eta\frac1nX^\top(X\beta_k-y).$$</div>
+      <p>If $X$ has full column rank, the objective is strongly convex. With a suitable step size, gradient descent converges geometrically. The convergence rate is governed by the spectrum of $X^\top X$; poor conditioning means a long, narrow quadratic bowl and slow progress in the weak-curvature directions.</p>
+      <p>For this scaling of $J$, a sufficient fixed-step condition is</p>
+      $$0<\eta<\frac{2n}{\lambda_{\max}(X^\top X)}.$$
+
+      <h3>9.2 Newton's method lands on OLS in one step</h3>
+      <p>Newton's update is</p>
+      $$
+      \beta_{k+1}=\beta_k-[\nabla^2J]^{-1}\nabla J(\beta_k).
+      $$
+      Substituting the gradient and Hessian,
+      $$
+      \begin{aligned}
+      \beta_{k+1}
+      &=\beta_k-(X^\top X)^{-1}X^\top(X\beta_k-y)\\
+      &=\beta_k-\beta_k+(X^\top X)^{-1}X^\top y\\
+      &=\hat\beta.
+      \end{aligned}
+      $$
+      <p>Because the objective is exactly quadratic and the Hessian is constant, one Newton step reaches the minimiser from any starting point when $X^\top X$ is invertible.</p>
     </section>
 
     <section id="example">
-      <h2>5. A worked example by hand</h2>
-      <p>Take three observations:</p>
-      $$ (x,y)=(1,2),(2,2),(3,4). $$
-      <p>For simple linear regression $\hat y=\beta_0+\beta_1x$,</p>
-      $$\bar x=2,\qquad \bar y=\frac83.$$
-      <p>The slope is</p>
-      $$\hat\beta_1=\frac{\sum_i(x_i-\bar x)(y_i-\bar y)}{\sum_i(x_i-\bar x)^2}=\frac{2}{2}=1,$$
-      <p>and the intercept is</p>
-      $$\hat\beta_0=\bar y-\hat\beta_1\bar x=\frac23.$$
-      <p>So</p>
-      <div class="equation-box">$$\hat y=\frac23+x.$$</div>
-      <p>The fitted values are $5/3,8/3,11/3$ and the residuals are $1/3,-2/3,1/3$. Their sum is zero because an intercept is present; the residual vector is also orthogonal to the predictor column, exactly as the normal equations require.</p>
+      <h2>10. Worked example: one dataset, three views</h2>
+      <p>Take</p>
+      $$(x,y)=(1,2),(2,2),(3,4).$$
+      <p>With an intercept,</p>
+      $$
+      X=\begin{pmatrix}1&1\\1&2\\1&3\end{pmatrix},\qquad
+      y=\begin{pmatrix}2\\2\\4\end{pmatrix}.
+      $$
+
+      <h3>10.1 Solve the normal equations</h3>
+      <p>Compute</p>
+      $$
+      X^\top X
+      =\begin{pmatrix}3&6\\6&14\end{pmatrix},\qquad
+      X^\top y
+      =\begin{pmatrix}8\\18\end{pmatrix}.
+      $$
+      Therefore
+      $$
+      \begin{pmatrix}3&6\\6&14\end{pmatrix}
+      \begin{pmatrix}\hat\beta_0\\\hat\beta_1\end{pmatrix}
+      =\begin{pmatrix}8\\18\end{pmatrix}.
+      $$
+      The determinant is $42-36=6$, and
+      $$
+      (X^\top X)^{-1}
+      =\frac16\begin{pmatrix}14&-6\\-6&3\end{pmatrix}.
+      $$
+      Hence
+      $$
+      \hat\beta
+      =\frac16
+      \begin{pmatrix}14&-6\\-6&3\end{pmatrix}
+      \begin{pmatrix}8\\18\end{pmatrix}
+      =\begin{pmatrix}2/3\\1\end{pmatrix}.
+      $$
+      Thus
+      <div class="result">$$\hat y=\frac23+x.$$</div>
+
+      <h3>10.2 Check the residual orthogonality</h3>
+      <p>The fitted values are</p>
+      $$\hat y=\begin{pmatrix}5/3\\8/3\\11/3\end{pmatrix},$$
+      so
+      $$
+      \hat e=y-\hat y
+      =\begin{pmatrix}1/3\\-2/3\\1/3\end{pmatrix}.
+      $$
+      Now</p>
+      $$
+      X^\top\hat e
+      =\begin{pmatrix}1&1&1\\1&2&3\end{pmatrix}
+      \begin{pmatrix}1/3\\-2/3\\1/3\end{pmatrix}
+      =\begin{pmatrix}0\\0\end{pmatrix}.
+      $$
+      <p>The first zero says the residuals sum to zero; the second says they are orthogonal to the predictor column. Algebra and geometry are saying the same thing.</p>
     </section>
 
     <section id="collinearity">
-      <h2>6. When coefficients explode but predictions still look fine</h2>
-      <p>Multicollinearity is one of the clearest examples of why the linear-algebra view matters. Suppose</p>
+      <h2>11. Near multicollinearity: when coefficients explode</h2>
+      <p>Take two almost identical predictors:</p>
 <pre><code>rng = np.random.default_rng(7)
 n = 80
 x1 = rng.normal(size=n)
 x2 = x1 + 1e-6 * rng.normal(size=n)
 X  = np.column_stack([x1, x2])
 y  = 3*x1 + 0.05*rng.normal(size=n)</code></pre>
-      <p>Here $x_2$ is almost a copy of $x_1$. A least-squares fit gives coefficients approximately</p>
-      <div class="equation-box">$$\hat\beta_1\approx 5900.64,\qquad \hat\beta_2\approx -5897.65.$$</div>
-      <p>Individually they look absurd. Their sum is about $2.992$, close to the true effective slope $3$, and the fitted RMSE is only about $0.0458$.</p>
-      <p>The design matrix has $\kappa_2(X)\approx2.12\times10^6$, while $\kappa_2(X^\top X)\approx4.49\times10^{12}$. Tiny perturbations can therefore cause large changes in the separate coefficients even while predictions remain stable.</p>
-      <div class="note"><span class="kicker">Interpretation.</span> Multicollinearity is primarily a coefficient-identification and variance problem. It need not destroy predictive accuracy inside the region supported by the data.</div>
+      <p>With an intercept, let $X_d=[\mathbf1,X]$. A least-squares fit gives approximately</p>
+      <div class="equation-box">$$\hat\beta_1\approx5900.64,\qquad \hat\beta_2\approx-5897.65.$$</div>
+      <p>The individual coefficients are unstable, yet their sum is about $2.992$, close to the effective slope $3$, and the fitted RMSE is about $0.0458$.</p>
+      <p>For the augmented design matrix,</p>
+      $$\kappa_2(X_d)\approx2.12\times10^6,$$
+      while
+      $$\kappa_2(X_d^\top X_d)\approx4.49\times10^{12}.$$
+      <p>The covariance formula explains the instability:</p>
+      $$\operatorname{Var}(\hat\beta\mid X_d)=\sigma^2(X_d^\top X_d)^{-1}.$$
+      <p>If an eigenvalue of $X_d^\top X_d$ approaches zero, the corresponding eigenvalue of its inverse becomes large. Small perturbations in the data can then produce large changes in the separate coefficients.</p>
+      <div class="note"><span class="kicker">Interpretation.</span> Near multicollinearity is mainly a coefficient-stability and variance problem. Perfect collinearity makes the individual coefficients non-identifiable because the least-squares minimiser is no longer unique.</div>
     </section>
 
     <section id="python">
-      <h2>7. What Python actually does</h2>
-      <p>A from-scratch implementation should solve the least-squares problem directly rather than explicitly forming the inverse:</p>
+      <h2>12. What Python actually does</h2>
+      <p>A transparent implementation should solve the least-squares problem directly rather than explicitly forming $(X^\top X)^{-1}$:</p>
 <pre><code>import numpy as np
 
 def fit_ols(X, y, fit_intercept=True):
@@ -207,9 +553,11 @@ def fit_ols(X, y, fit_intercept=True):
     beta, residuals, rank, singular_values = np.linalg.lstsq(
         X, y, rcond=None
     )
-    return beta, rank, singular_values</code></pre>
-      <p><code>numpy.linalg.lstsq</code> returns the vector that minimises $\|y-X\beta\|_2$; if several minimisers exist, it returns the one with the smallest Euclidean norm.</p>
-      <p>For dense data, current scikit-learn <code>LinearRegression</code> also formulates the problem as ordinary least squares and delegates the numerical solve to <code>scipy.linalg.lstsq</code>. Sparse data use a different least-squares solver. The estimator additionally exposes the matrix rank and singular values for dense $X$.</p>
+    return beta, residuals, rank, singular_values</code></pre>
+      <p><code>numpy.linalg.lstsq</code> returns a vector minimising $\|y-X\beta\|_2$. When there are several minimisers, it returns the minimum-Euclidean-norm solution.</p>
+
+      <h3>12.1 scikit-learn</h3>
+      <p>For dense data with the default <code>positive=False</code>, current scikit-learn centres $X$ and $y$ when <code>fit_intercept=True</code>, solves the centred least-squares problem through <code>scipy.linalg.lstsq</code>, and reconstructs the intercept afterwards. Sparse data use an iterative least-squares solver; <code>positive=True</code> changes the problem to non-negative least squares.</p>
 <pre><code>from sklearn.linear_model import LinearRegression
 
 model = LinearRegression()
@@ -219,36 +567,60 @@ print(model.intercept_)
 print(model.coef_)
 print(model.rank_)
 print(model.singular_)</code></pre>
-      <p>The important distinction is between the <strong>estimator</strong> and the <strong>solver</strong>. Ordinary least squares defines the minimiser. QR, SVD and iterative least-squares methods are numerical routes to that minimiser.</p>
+      <p>The conceptual distinction is important: <strong>OLS defines the estimator; QR, SVD, LAPACK routines and iterative solvers are numerical routes to it.</strong></p>
     </section>
 
     <section id="assumptions">
-      <h2>8. What assumptions belong to which claim?</h2>
-      <p>A useful way to avoid confusion is to separate fitting, unbiasedness, efficiency and inference.</p>
+      <h2>13. Which assumptions support which claims?</h2>
+      <p>Different statements about linear regression require different assumptions. Keeping them separate avoids much confusion.</p>
       <table>
         <thead><tr><th>Claim</th><th>What is needed</th></tr></thead>
         <tbody>
-          <tr><td>OLS coefficients minimise RSS</td><td>No probabilistic assumption. This is an optimisation statement.</td></tr>
-          <tr><td>Unique coefficient vector</td><td>Full column rank of $X$.</td></tr>
-          <tr><td>$\mathbb E[\hat\beta\mid X]=\beta$</td><td>Correct linear mean specification and $\mathbb E[\varepsilon\mid X]=0$.</td></tr>
-          <tr><td>Gauss–Markov efficiency among linear unbiased estimators</td><td>Zero conditional mean plus homoscedastic, uncorrelated errors.</td></tr>
-          <tr><td>Exact small-sample $t$ and $F$ inference</td><td>Classical assumptions plus normally distributed errors.</td></tr>
+          <tr><td>OLS coefficients minimise RSS</td><td>No probabilistic assumption. This follows from the optimisation problem.</td></tr>
+          <tr><td>The minimiser is unique</td><td>Full column rank of $X$.</td></tr>
+          <tr><td>$\mathbb E[\hat\beta\mid X]=\beta$</td><td>Correct linear conditional mean and $\mathbb E[\varepsilon\mid X]=0$.</td></tr>
+          <tr><td>$\operatorname{Var}(\hat\beta\mid X)=\sigma^2(X^\top X)^{-1}$</td><td>Zero conditional mean plus homoscedastic, uncorrelated errors.</td></tr>
+          <tr><td>Gauss–Markov BLUE result</td><td>Linearity, full rank, zero conditional mean and spherical error covariance $\sigma^2I$.</td></tr>
+          <tr><td>Exact finite-sample $t$ and $F$ distributions</td><td>The classical assumptions plus Gaussian errors.</td></tr>
         </tbody>
       </table>
-      <p>For prediction work, cross-validated error is usually the relevant test. For coefficient interpretation and uncertainty, the error structure and data-generating assumptions matter directly.</p>
+      <p>For prediction, the relevant empirical question is usually out-of-sample error. For coefficient interpretation and uncertainty, the assumptions about the data-generating process and the error structure matter directly.</p>
+    </section>
+
+    <section id="ridge">
+      <h2>14. Ridge regression as a natural extension</h2>
+      <p>The instability of OLS under near-collinearity suggests adding curvature in directions where $X^\top X$ is weak. Ridge regression solves</p>
+      $$
+      \hat\beta_\lambda
+      =\arg\min_\beta\left\{\|y-X\beta\|_2^2+\lambda\|\beta\|_2^2\right\}.
+      $$
+      Differentiating gives</p>
+      $$
+      -2X^\top y+2X^\top X\beta+2\lambda\beta=0,
+      $$
+      hence
+      <div class="equation-box">$$\hat\beta_\lambda=(X^\top X+\lambda I)^{-1}X^\top y.$$</div>
+      <p>If $X^\top X=V\Lambda V^\top$, then</p>
+      $$X^\top X+\lambda I=V(\Lambda+\lambda I)V^\top.$$
+      <p>Every eigenvalue is shifted upward by $\lambda$. Directions associated with very small eigenvalues are therefore stabilised. Statistically, this reduces variance by accepting some bias.</p>
+      <p class="small">In models with an intercept, the intercept is normally excluded from the penalty.</p>
     </section>
 
     <section id="summary">
-      <h2>9. Under the hood</h2>
+      <h2>15. Under the hood</h2>
       <ul class="takeaways">
-        <li><code>fit()</code> solves $\min_\beta\|y-X\beta\|_2^2$.</li>
-        <li>The normal equations arise by setting the gradient of RSS to zero.</li>
-        <li>Geometrically, $\hat y$ is the orthogonal projection of $y$ onto $\operatorname{col}(X)$.</li>
-        <li>The closed-form inverse is a mathematical identity, not the preferred numerical algorithm.</li>
-        <li>QR/SVD-style least-squares solvers handle conditioning and rank more sensibly.</li>
-        <li>Multicollinearity can make individual coefficients unstable while predictions remain accurate.</li>
+        <li><code>fit()</code> solves a convex least-squares problem: $\min_\beta\|y-X\beta\|_2^2$.</li>
+        <li>Gaussian errors make the same estimator the maximum-likelihood solution.</li>
+        <li>The normal equations arise from setting the gradient to zero; the Hessian explains convexity and uniqueness.</li>
+        <li>$\hat y=Hy$ is an orthogonal projection and $H$ is symmetric and idempotent.</li>
+        <li>$\hat\beta$ is unbiased under zero conditional mean, with covariance $\sigma^2(X^\top X)^{-1}$ under spherical errors.</li>
+        <li>Gauss–Markov follows by comparing any linear unbiased estimator with OLS and obtaining a positive-semidefinite covariance difference.</li>
+        <li>The textbook inverse is a theoretical identity. QR and SVD solve the numerical problem more sensibly.</li>
+        <li>Conditioning links numerical instability, multicollinearity and coefficient variance.</li>
+        <li>Gradient descent exposes the optimisation geometry; Newton's method reaches the OLS solution in one step because the objective is quadratic.</li>
+        <li>Ridge modifies the same linear algebra by shifting the eigenvalues of $X^\top X$.</li>
       </ul>
-      <p>The next time <code>LinearRegression().fit(X, y)</code> returns almost instantly, there is a useful mental picture behind that call: a convex quadratic objective, a projection in $\mathbb R^n$, and a carefully implemented least-squares solve.</p>
+      <p>The single call <code>LinearRegression().fit(X, y)</code> therefore hides a substantial chain of applied mathematics: probability, optimisation, geometry, matrix factorisation and statistical inference all meet in one of the simplest models in machine learning.</p>
     </section>
 
     <section class="refs">
@@ -256,8 +628,10 @@ print(model.singular_)</code></pre>
       <ul>
         <li><a href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html">scikit-learn: <code>LinearRegression</code></a>.</li>
         <li><a href="https://numpy.org/doc/stable/reference/generated/numpy.linalg.lstsq.html">NumPy: <code>numpy.linalg.lstsq</code></a>.</li>
+        <li><a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.linalg.lstsq.html">SciPy: <code>scipy.linalg.lstsq</code></a>.</li>
         <li>Golub, G. H. &amp; Van Loan, C. F. <em>Matrix Computations</em>, 4th ed., Johns Hopkins University Press, 2013.</li>
         <li>Hastie, T., Tibshirani, R. &amp; Friedman, J. <em>The Elements of Statistical Learning</em>, 2nd ed., Springer, 2009.</li>
+        <li>Seber, G. A. F. &amp; Lee, A. J. <em>Linear Regression Analysis</em>, 2nd ed., Wiley, 2003.</li>
       </ul>
     </section>
 
