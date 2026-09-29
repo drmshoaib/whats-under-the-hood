@@ -138,3 +138,9 @@ a { color: var(--accent-dark); }
   .series-logo { width: 140px; height: 140px; }
   .grid { grid-template-columns: 1fr; }
 }
+
+/* release: upcoming */
+.lecture-card { margin-bottom: 14px; }
+.lecture-card.upcoming { opacity: 0.62; }
+.lecture-card.upcoming .lecture-number { background: var(--muted); }
+.part-title { margin: 26px 0 10px; font-size: 0.85rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }

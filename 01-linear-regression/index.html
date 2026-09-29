@@ -1,645 +1,1078 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="What's Under the Hood? #01 — Linear Regression: least squares, Gaussian likelihood, normal equations, projection geometry, Gauss–Markov, inference, conditioning, QR, SVD and implementation.">
-  <title>#01 Linear Regression — What's Under the Hood?</title>
-  <script>
-    window.MathJax = {
-      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
-      svg: { fontCache: 'global' }
-    };
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
-  <style>
+<meta charset="utf-8">
+<meta name="description" content="What's Under the Hood? #01 — OLS, the normal equations, projection geometry, Gauss–Markov, inference, and ridge/lasso as natural extensions.">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#01 Linear Regression — What's Under the Hood?</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #555;
+    --accent: #1f4e79;
+    --accent-light: #2e6da4;
+    --border: #d8dee4;
+    --code-bg: #f5f7f9;
+    --table-stripe: #f6f8fa;
+    --box-bg: #f0f6ff;
+    --box-border: #b8d4f0;
+  }
+  @media (prefers-color-scheme: dark) {
     :root {
-      color-scheme: light;
-      --ink:#0d1b2a; --muted:#52606d; --accent:#0b8fd8; --accent-dark:#0a5f9e;
-      --line:#d9e2ec; --panel:#f7fafc; --code:#eef3f7; --warn:#fff8e6; --good:#eef9f1;
+      --bg: #14171a;
+      --fg: #e6e6e6;
+      --muted: #a8b0b8;
+      --accent: #7fb8e6;
+      --accent-light: #9cc9ee;
+      --border: #333a42;
+      --code-bg: #1d2226;
+      --table-stripe: #1b1f23;
+      --box-bg: #16232e;
+      --box-border: #2a4a63;
     }
-    *{box-sizing:border-box} html{scroll-behavior:smooth}
-    body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:#fff;line-height:1.7}
-    .layout{display:grid;grid-template-columns:280px minmax(0,930px);gap:54px;max-width:1290px;margin:0 auto;padding:42px 30px 90px}
-    aside{position:sticky;top:24px;align-self:start;max-height:calc(100vh - 48px);overflow:auto;padding-right:18px}
-    .series{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink);font-weight:700;margin-bottom:22px}
-    .series img{width:50px;height:50px;border-radius:8px}
-    .back{display:inline-block;margin-bottom:22px;color:var(--accent-dark);font-size:.9rem}
-    nav{border-top:1px solid var(--line);padding-top:16px}
-    nav strong{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-    nav ol{padding-left:1.25rem;margin:.7rem 0 0;font-size:.84rem}
-    nav li{margin:.40rem 0} nav a{color:var(--muted);text-decoration:none} nav a:hover{color:var(--accent-dark)}
-    main{min-width:0}
-    .eyebrow{margin:0 0 8px;color:var(--accent-dark);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:.82rem}
-    h1{font-size:clamp(2.3rem,6vw,4.4rem);line-height:1.04;letter-spacing:-.04em;margin:0 0 18px}
-    .subtitle{font-size:1.32rem;color:var(--muted);margin:0 0 26px;max-width:780px}
-    .meta{font-size:.9rem;color:var(--muted);padding-bottom:28px;border-bottom:1px solid var(--line)}
-    h2{font-size:1.82rem;line-height:1.2;margin:2.45em 0 .7em;padding-top:.2em} h3{font-size:1.28rem;margin:1.85em 0 .5em}
-    p{margin:.9em 0} a{color:var(--accent-dark)}
-    .lead{font-size:1.09rem}
-    .equation-box,.note,.warning,.result{border:1px solid var(--line);border-radius:12px;padding:15px 20px;margin:1.4em 0;background:var(--panel)}
-    .equation-box{text-align:center;font-size:1.05rem}.warning{background:var(--warn)}.result{background:var(--good)}
-    .kicker{font-weight:700;color:var(--accent-dark)}
-    code{font-family:Consolas,"Liberation Mono",monospace;background:var(--code);padding:.08em .34em;border-radius:4px;font-size:.9em}
-    pre{background:#0f1720;color:#edf4fa;border-radius:12px;padding:18px 20px;overflow:auto;line-height:1.5;font-size:.88rem}
-    pre code{background:none;padding:0;color:inherit}
-    table{border-collapse:collapse;width:100%;margin:1.4em 0;font-size:.92rem;display:block;overflow:auto}
-    th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top} th{background:var(--panel)}
-    figure{margin:1.8em 0}.fig{border:1px solid var(--line);border-radius:12px;padding:18px;background:var(--panel)}
-    figure svg{display:block;width:100%;height:auto} figcaption{color:var(--muted);font-size:.86rem;margin-top:9px;text-align:center}
-    .takeaways{border-left:4px solid var(--accent);padding:4px 0 4px 18px;margin:1.5em 0}.takeaways li{margin:.45em 0}
-    .refs{font-size:.92rem;color:var(--muted)}
-    .small{font-size:.92rem;color:var(--muted)}
-    footer{margin-top:55px;padding-top:22px;border-top:1px solid var(--line);color:var(--muted);font-size:.92rem}
-    mjx-container{overflow-x:auto;overflow-y:hidden;max-width:100%}
-    @media(max-width:900px){.layout{grid-template-columns:1fr;padding:26px 20px 70px;gap:18px}aside{position:static;max-height:none;padding-right:0}nav{display:none}.series{margin-bottom:8px}.back{margin-bottom:4px}}
-  </style>
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0;
+    font-size: 18px;
+  }
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 28px 120px;
+  }
+  header.title {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 20px;
+    margin-bottom: 40px;
+  }
+  header.title h1 {
+    font-size: 2.2rem;
+    margin: 0 0 6px;
+    color: var(--accent);
+    line-height: 1.2;
+  }
+  header.title .subtitle {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 1.05rem;
+  }
+  h2 {
+    color: var(--accent);
+    font-size: 1.6rem;
+    margin-top: 2.4em;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    color: var(--accent-light);
+    font-size: 1.25rem;
+    margin-top: 1.8em;
+  }
+  h4 {
+    font-size: 1.08rem;
+    margin-top: 1.4em;
+    color: var(--fg);
+  }
+  p { margin: 0.9em 0; }
+  a { color: var(--accent-light); }
+  strong { color: var(--fg); }
+  code {
+    font-family: "SF Mono", "Consolas", "Menlo", monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    font-size: 0.82rem;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1.4em 0;
+    font-size: 0.92rem;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    display: block;
+    overflow-x: auto;
+    white-space: normal;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+  tbody tr:nth-child(even) { background: var(--table-stripe); }
+  blockquote {
+    border-left: 4px solid var(--accent-light);
+    margin: 1.2em 0;
+    padding: 4px 18px;
+    color: var(--muted);
+    background: var(--box-bg);
+    border-radius: 0 6px 6px 0;
+  }
+  ul, ol { padding-left: 1.6em; }
+  li { margin: 0.4em 0; }
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2.5em 0;
+  }
+  .box {
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 8px;
+    padding: 4px 20px;
+    margin: 1.4em 0;
+  }
+  .toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 26px;
+    margin-bottom: 40px;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 0.9rem;
+  }
+  .toc h2 {
+    border: none;
+    margin: 0 0 10px;
+    font-size: 1.15rem;
+    padding: 0;
+  }
+  .toc ol { columns: 2; column-gap: 36px; margin: 0; }
+  .toc a { text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  mjx-container { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+  figure { margin: 1.8em 0; }
+  .fig-wrap {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 18px 10px;
+  }
+  figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 10px;
+    font-style: italic;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    text-align: center;
+  }
+</style>
+<style id="layout-override">
+  .wrap { display:flex; max-width:none; margin:0; padding:0; align-items:flex-start; }
+  .sidebar { position:sticky; top:0; align-self:flex-start; width:290px; min-width:290px;
+    height:100vh; overflow-y:auto; padding:24px 20px; border-right:1px solid var(--border);
+    background:var(--code-bg); font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; }
+  .content { flex:1; min-width:0; padding:44px 56px 120px; }
+  .sb-index { display:block; background:var(--accent); color:#fff; text-decoration:none;
+    font-weight:600; font-size:0.9rem; text-align:center; padding:10px 14px; border-radius:8px;
+    margin-bottom:18px; }
+  .sb-index:hover { opacity:0.9; }
+  .sidebar .toc { position:static; margin:0 0 18px; padding:0; background:none;
+    border:none; border-radius:0; }
+  .sidebar .toc h2 { font-size:0.9rem; margin:0 0 8px; border:none; padding:0; }
+  .sidebar .toc ol { columns:1; font-size:0.8rem; padding-left:1.3em; line-height:1.5; }
+  .sidebar .toc a { color:var(--fg); }
+  .sidebar .toc a:hover { color:var(--accent); }
+  .sb-nav { display:flex; flex-direction:column; gap:10px; border-top:1px solid var(--border);
+    padding-top:16px; margin-top:4px; }
+  .sb-nav a { font-size:0.82rem; text-decoration:none; color:var(--accent); font-weight:600; }
+  .sb-nav .lbl { display:block; font-size:0.68rem; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted); font-weight:400; }
+  @media (max-width: 820px) {
+    .wrap { flex-direction:column; }
+    .sidebar { position:static; width:auto; min-width:0; height:auto; overflow:visible;
+      border-right:none; border-bottom:1px solid var(--border); }
+    .sidebar .toc ol { columns:2; }
+    .content { padding:28px 20px 80px; }
+  }
+  header.title h1 { overflow-wrap:break-word; }
+  @media (max-width: 820px){ header.title h1 { font-size:1.7rem; } }
+  /* mobile-overflow fix */
+  mjx-container[display="true"] { min-width:0 !important; overflow-x:auto; overflow-y:hidden; max-width:100%; }
+  @media (max-width: 820px){
+    .wrap { align-items:stretch; }
+    .sidebar, .content { width:100%; max-width:100%; min-width:0; }
+    pre, table, figure, .box, blockquote { max-width:100%; }
+    /* long inline formulas: swipeable instead of widening the page; no scrollbar chrome */
+    mjx-container:not([display="true"]) { display:inline-block; max-width:100%; overflow-x:auto;
+      overflow-y:hidden; vertical-align:middle; scrollbar-width:none; }
+    mjx-container:not([display="true"])::-webkit-scrollbar { display:none; }
+  }
+
+  /* --- series branding (release build) --- */
+  .sb-series { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--fg);
+    font-weight:700; font-size:0.95rem; margin-bottom:14px; }
+  .sb-series img { width:44px; height:44px; border-radius:8px; }
+  .sb-soon { display:block; font-size:0.82rem; color:var(--muted); }
+  .sb-soon .lbl { display:block; font-size:0.68rem; text-transform:uppercase; letter-spacing:.06em; }
+  header.title .eyebrow { margin:0 0 8px; color:var(--accent-light); font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; font-size:0.8rem; font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; }
+  header.title .meta { margin-top:10px; font-size:0.9rem; color:var(--muted);
+    font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; }
+  .plain-ref { text-decoration:underline dotted; text-underline-offset:3px; }
+</style>
 </head>
 <body>
-<div class="layout">
-  <aside>
-    <a class="series" href="../"><img src="../assets/series-logo.svg" alt="Series logo"><span>What's Under the Hood?</span></a>
-    <a class="back" href="../">&larr; Series index</a>
-    <nav aria-label="Lecture contents">
-      <strong>Lecture 01</strong>
-      <ol>
-        <li><a href="#question">The question behind fit()</a></li>
-        <li><a href="#formulation">Model and least squares</a></li>
-        <li><a href="#likelihood">Gaussian likelihood</a></li>
-        <li><a href="#normal">Normal equations and Hessian</a></li>
-        <li><a href="#projection">Projection and hat matrix</a></li>
-        <li><a href="#properties">Estimator properties</a></li>
-        <li><a href="#gauss-markov">Gauss–Markov theorem</a></li>
-        <li><a href="#inference">Distribution and inference</a></li>
-        <li><a href="#numerics">Conditioning, QR and SVD</a></li>
-        <li><a href="#optimisation">Gradient and Newton views</a></li>
-        <li><a href="#example">Worked example</a></li>
-        <li><a href="#collinearity">Multicollinearity</a></li>
-        <li><a href="#python">What Python actually does</a></li>
-        <li><a href="#assumptions">Which assumptions support which claims?</a></li>
-        <li><a href="#ridge">Ridge as a numerical/statistical extension</a></li>
-        <li><a href="#summary">Under the hood</a></li>
-      </ol>
-    </nav>
-  </aside>
+<div class="wrap">
+<aside class="sidebar">
+<a class="sb-series" href="../"><img src="../assets/series-logo.svg" alt=""><span>What's Under the Hood?</span></a>
+<a class="sb-index" href="../">&larr; Series index</a>
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#s1">Motivation and Problem Setting</a></li>
+    <li><a href="#s2">Core Intuition</a></li>
+    <li><a href="#s3">Mathematical Formulation</a></li>
+    <li><a href="#s4">Derivation</a></li>
+    <li><a href="#s5">Algorithm</a></li>
+    <li><a href="#s6">Worked Numerical Example</a></li>
+    <li><a href="#s7">Geometry and Visual Interpretation</a></li>
+    <li><a href="#s8">Statistical Interpretation</a></li>
+    <li><a href="#s9">Training and Optimisation</a></li>
+    <li><a href="#s10">Hyperparameters</a></li>
+    <li><a href="#s11">Bias–Variance Behaviour</a></li>
+    <li><a href="#s12">Computational Complexity</a></li>
+    <li><a href="#s13">Data Preparation</a></li>
+    <li><a href="#s14">Evaluation</a></li>
+    <li><a href="#s15">Validation Strategy</a></li>
+    <li><a href="#s16">Diagnostics</a></li>
+    <li><a href="#s17">Strengths</a></li>
+    <li><a href="#s18">Weaknesses and Failure Modes</a></li>
+    <li><a href="#s19">Comparison With Related Algorithms</a></li>
+    <li><a href="#s20">When I Should Use It</a></li>
+    <li><a href="#s21">Python Implementation From Scratch</a></li>
+    <li><a href="#s22">Production Python Implementation</a></li>
+    <li><a href="#s23">Library Parameters Mapped to Mathematics</a></li>
+    <li><a href="#s24">Common Interview Questions</a></li>
+    <li><a href="#s25">Common Misconceptions</a></li>
+    <li><a href="#s26">Exercises</a></li>
+    <li><a href="#s26s">Solutions</a></li>
+    <li><a href="#s27">Summary Cheat Sheet</a></li>
+  </ol>
+</nav>
+<div class="sb-nav"><span class="sb-soon"><span class="lbl">Next &rarr;</span>Logistic Regression &middot; coming next week</span></div>
+</aside>
+<main class="content">
+<header class="title">
+  <p class="eyebrow">What's Under the Hood? &middot; #01 &middot; Week 1</p>
+  <h1>Lecture 1 — Linear Regression</h1>
+  <div class="subtitle">Part I — Mathematical Foundations and Classical Supervised Learning</div>
+  <div class="meta">Dr. Muhammad Shoaib &middot; Applied Mathematics &amp; Data Science &middot; <a href="https://www.linkedin.com/newsletters/7510688077275648000/">LinkedIn newsletter</a> &middot; every lecture follows the same 27 sections &mdash; use the sidebar to navigate.</div>
+</header>
 
-  <main>
-    <header>
-      <p class="eyebrow">What's Under the Hood? · #01</p>
-      <h1>Linear Regression</h1>
-      <p class="subtitle">What does <code>fit()</code> actually solve?</p>
-      <p class="meta">Dr. Muhammad Shoaib · Applied Mathematics &amp; Data Science</p>
-    </header>
+<p>Before we touch a single equation, let me set expectations. Linear regression looks deceptively simple — a line through some points — and for that reason it is the most <em>underestimated</em> algorithm in the entire course. Almost everything that follows is, in some sense, a generalisation of ideas that appear here first: the notion of a loss function, the idea of fitting parameters by optimisation, the geometry of projection, the statistical machinery of estimators and their uncertainty, and the tension between bias and variance. If you understand linear regression <em>completely</em> — not just "call <code>.fit()</code>" but why the normal equations look the way they do, what the Gauss–Markov theorem actually promises, and where the whole edifice collapses — then logistic regression, ridge, neural networks, and Gaussian processes will feel like variations on a theme you already know.</p>
 
-    <section id="question">
-      <h2>The question behind <code>fit()</code></h2>
-      <p class="lead">A linear regression model can be fitted in one line:</p>
-<pre><code>from sklearn.linear_model import LinearRegression
-model = LinearRegression().fit(X, y)</code></pre>
-      <p>The API is deliberately simple. Underneath it sit several distinct mathematical objects: a convex optimisation problem, a projection in an $n$-dimensional vector space, a statistical estimator with a sampling distribution, and a numerical linear-algebra problem whose conditioning matters.</p>
-      <p>This lecture develops those pieces from first principles and then reconnects them to what a production library actually computes.</p>
+<p>So we will go slowly and build it properly.</p>
 
-      <figure>
-        <div class="fig">
-          <svg viewBox="0 0 720 330" role="img" aria-label="Scatterplot with fitted linear regression line and vertical residuals">
-            <line x1="70" y1="275" x2="665" y2="275" stroke="#52606d" stroke-width="2"/>
-            <line x1="70" y1="275" x2="70" y2="40" stroke="#52606d" stroke-width="2"/>
-            <line x1="95" y1="250" x2="625" y2="80" stroke="#0b8fd8" stroke-width="4"/>
-            <g stroke="#b3392f" stroke-width="2" stroke-dasharray="5 4">
-              <line x1="125" y1="228" x2="125" y2="240"/>
-              <line x1="210" y1="205" x2="210" y2="213"/>
-              <line x1="300" y1="188" x2="300" y2="184"/>
-              <line x1="395" y1="140" x2="395" y2="153"/>
-              <line x1="505" y1="132" x2="505" y2="118"/>
-              <line x1="600" y1="79" x2="600" y2="87"/>
-            </g>
-            <g fill="#0d1b2a">
-              <circle cx="125" cy="228" r="6"/><circle cx="210" cy="205" r="6"/><circle cx="300" cy="188" r="6"/>
-              <circle cx="395" cy="140" r="6"/><circle cx="505" cy="132" r="6"/><circle cx="600" cy="79" r="6"/>
-            </g>
-            <text x="535" y="98" font-size="18" fill="#0a5f9e">fitted line</text>
-            <text x="610" y="303" font-size="18" fill="#52606d">x</text>
-            <text x="45" y="55" font-size="18" fill="#52606d">y</text>
-          </svg>
-        </div>
-        <figcaption>The familiar picture: OLS minimises the sum of squared vertical residuals. The deeper picture later in the lecture is an orthogonal projection in observation space.</figcaption>
-      </figure>
-    </section>
+<hr>
 
-    <section id="formulation">
-      <h2>1. Model and least-squares formulation</h2>
-      <p>Suppose we observe $n$ responses $y_i$ and $p$ predictors. With an intercept, define the augmented design matrix</p>
-      $$
-      X=\begin{pmatrix}
-      1 & x_{11} & \cdots & x_{1p}\\
-      1 & x_{21} & \cdots & x_{2p}\\
-      \vdots & \vdots & & \vdots\\
-      1 & x_{n1} & \cdots & x_{np}
-      \end{pmatrix}\in\mathbb R^{n\times(p+1)},\qquad
-      y=\begin{pmatrix}y_1\\ \vdots\\ y_n\end{pmatrix},\qquad
-      \beta=\begin{pmatrix}\beta_0\\ \vdots\\ \beta_p\end{pmatrix}.
-      $$
-      <p>The linear model is</p>
-      <div class="equation-box">$$y=X\beta+\varepsilon.$$</div>
-      <p>"Linear" here means linear in the parameters. A model such as</p>
-      $$y=\beta_0+\beta_1x+\beta_2x^2+\varepsilon$$
-      <p>is still a linear model because the coefficients enter linearly.</p>
-      <p>For a proposed coefficient vector $\beta$, the residual vector is</p>
-      $$r(\beta)=y-X\beta.$$
-      <p>Ordinary least squares chooses $\beta$ to minimise its squared Euclidean norm:</p>
-      <div class="equation-box">$$\hat\beta=\arg\min_\beta\;\|y-X\beta\|_2^2.$$</div>
-      <p>Equivalently,</p>
-      $$\operatorname{RSS}(\beta)=\sum_{i=1}^n(y_i-x_i^\top\beta)^2=(y-X\beta)^\top(y-X\beta).$$
-      <p>This optimisation statement needs no probability model. OLS can be defined purely as the minimiser of a quadratic loss.</p>
-    </section>
+<h2 id="s1">1. Motivation and Problem Setting</h2>
 
-    <section id="likelihood">
-      <h2>2. Why squared error appears: the Gaussian likelihood</h2>
-      <p>Now add a probabilistic model. Suppose</p>
-      $$\varepsilon\mid X\sim\mathcal N(0,\sigma^2I_n),$$
-      <p>so that each observation satisfies</p>
-      $$y_i\mid x_i\sim\mathcal N(x_i^\top\beta,\sigma^2).$$
-      <p>The conditional density is</p>
-      $$p(y_i\mid x_i,\beta,\sigma^2)=\frac{1}{\sqrt{2\pi\sigma^2}}
-      \exp\!\left[-\frac{(y_i-x_i^\top\beta)^2}{2\sigma^2}\right].$$
-      <p>Assuming conditional independence, the likelihood is</p>
-      $$L(\beta,\sigma^2)=\prod_{i=1}^n p(y_i\mid x_i,\beta,\sigma^2).$$
-      <p>Taking logarithms,</p>
-      $$
-      \ell(\beta,\sigma^2)
-      =-\frac n2\log(2\pi\sigma^2)
-       -\frac{1}{2\sigma^2}\sum_{i=1}^n(y_i-x_i^\top\beta)^2.
-      $$
-      <p>Therefore, for fixed $\sigma^2$,</p>
-      <div class="result">$$\arg\max_\beta\ell(\beta,\sigma^2)=\arg\min_\beta\operatorname{RSS}(\beta).$$</div>
-      <p>Thus OLS is the maximum-likelihood estimator of $\beta$ under independent Gaussian errors. The optimisation definition is more general; Gaussianity is what gives least squares this particular likelihood interpretation.</p>
-    </section>
+<p><strong>The problem.</strong> We have observations of some quantity $y$ (a <em>response</em>, <em>target</em>, or <em>dependent variable</em>) that we believe depends on one or more measured quantities $x_1, \dots, x_p$ (<em>features</em>, <em>predictors</em>, <em>covariates</em>, <em>independent variables</em>). We want a function $f$ such that $f(x) \approx y$, so that:</p>
 
-    <section id="normal">
-      <h2>3. Deriving the normal equations</h2>
-      <p>Start from</p>
-      $$\operatorname{RSS}(\beta)=(y-X\beta)^\top(y-X\beta).$$
-      <p>Expand:</p>
-      $$
-      \operatorname{RSS}(\beta)
-      =y^\top y-y^\top X\beta-\beta^\top X^\top y+\beta^\top X^\top X\beta.
-      $$
-      <p>The two middle terms are equal because each is a scalar, so</p>
-      $$
-      \operatorname{RSS}(\beta)
-      =y^\top y-2\beta^\top X^\top y+\beta^\top X^\top X\beta.
-      $$
-      <p>Using $\nabla_\beta(\beta^\top A\beta)=(A+A^\top)\beta$ and the symmetry of $X^\top X$ gives</p>
-      $$\nabla_\beta\operatorname{RSS}=-2X^\top y+2X^\top X\beta.$$
-      <p>At a stationary point,</p>
-      $$-2X^\top y+2X^\top X\hat\beta=0,$$
-      hence
-      <div class="equation-box">$$X^\top X\hat\beta=X^\top y.$$</div>
-      <p>These are the <strong>normal equations</strong>. If $X$ has full column rank, then $X^\top X$ is positive definite and invertible, giving</p>
-      <div class="equation-box">$$\hat\beta=(X^\top X)^{-1}X^\top y.$$</div>
+<ul>
+  <li>given a <strong>new</strong> $x$ we can <em>predict</em> $y$ (the machine-learning goal), and/or</li>
+  <li>we can <em>understand</em> how $y$ changes as each $x_j$ changes (the statistical-inference goal).</li>
+</ul>
 
-      <h3>3.1 Why the stationary point is the global minimum</h3>
-      <p>The Hessian is</p>
-      $$\nabla_\beta^2\operatorname{RSS}=2X^\top X.$$
-      <p>For any vector $z$,</p>
-      $$z^\top X^\top Xz=\|Xz\|_2^2\ge0,$$
-      <p>so $X^\top X$ is always positive semidefinite. If $X$ has full column rank, $Xz=0$ implies $z=0$, hence</p>
-      $$z^\top X^\top Xz>0\qquad(z\ne0),$$
-      <p>so the Hessian is positive definite and the objective is strictly convex. Therefore the solution is the unique global minimiser.</p>
+<p>Linear regression is the special case where we insist $f$ be an <strong>affine function</strong> of the features:</p>
 
-      <h3>3.2 Why they are called "normal" equations</h3>
-      <p>Rearrange the normal equations:</p>
-      $$X^\top(y-X\hat\beta)=0.$$
-      <p>Writing $\hat e=y-X\hat\beta$ gives</p>
-      <div class="result">$$X^\top\hat e=0.$$</div>
-      <p>Every column of $X$ is orthogonal to the residual vector. The residual is therefore normal to the subspace spanned by the columns of $X$.</p>
-    </section>
+$$ f(x) = \beta_0 + \beta_1 x_1 + \cdots + \beta_p x_p. $$
 
-    <section id="projection">
-      <h2>4. Projection geometry and the hat matrix</h2>
-      <p>The fitted values are</p>
-      $$
-      \hat y=X\hat\beta
-      =X(X^\top X)^{-1}X^\top y.
-      $$
-      <p>Define</p>
-      <div class="equation-box">$$H:=X(X^\top X)^{-1}X^\top.$$</div>
-      <p>Then $\hat y=Hy$. The matrix $H$ is the <strong>hat matrix</strong>: it puts the hat on $y$.</p>
-      <p>It is an orthogonal projector onto $\operatorname{col}(X)$. Two properties prove this directly.</p>
-      <p><strong>Symmetry:</strong></p>
-      $$
-      H^\top=\left[X(X^\top X)^{-1}X^\top\right]^\top
-      =X(X^\top X)^{-1}X^\top=H.
-      $$
-      <p><strong>Idempotence:</strong></p>
-      $$
-      H^2=X(X^\top X)^{-1}\underbrace{X^\top X}_{\text{cancels}}(X^\top X)^{-1}X^\top=H.
-      $$
-      <p>Hence projecting twice changes nothing. The residual vector is</p>
-      $$\hat e=(I-H)y,$$
-      <p>and $I-H$ is the complementary projector onto $\operatorname{col}(X)^\perp$.</p>
-      <p>Because</p>
-      $$H(I-H)=H-H^2=0,$$
-      <p>we have $\hat y^\top\hat e=0$. Fitted values and residuals are orthogonal.</p>
+<p><strong>Why it was developed.</strong> Historically this is the oldest fitted statistical model — Legendre (1805) and Gauss (early 1800s) developed least squares to reconcile noisy astronomical measurements of orbits. The core problem they faced is <em>exactly</em> the modern one: more equations (observations) than unknowns (parameters), all contaminated by error, and no exact solution. Least squares gives the "best compromise."</p>
 
-      <figure>
-        <div class="fig">
-          <svg viewBox="0 0 720 330" role="img" aria-label="Orthogonal projection of y onto the column space of X">
-            <polygon points="105,245 470,285 625,205 260,165" fill="#eaf5fc" stroke="#a9cfe8" stroke-width="2"/>
-            <line x1="190" y1="225" x2="405" y2="198" stroke="#0b8fd8" stroke-width="4"/>
-            <line x1="405" y1="198" x2="380" y2="65" stroke="#d04c3f" stroke-width="4" stroke-dasharray="8 7"/>
-            <line x1="190" y1="225" x2="380" y2="65" stroke="#0d1b2a" stroke-width="3"/>
-            <circle cx="405" cy="198" r="6" fill="#0b8fd8"/><circle cx="380" cy="65" r="6" fill="#0d1b2a"/>
-            <text x="420" y="196" font-size="22" fill="#0a5f9e">ŷ</text>
-            <text x="392" y="55" font-size="22" fill="#0d1b2a">y</text>
-            <text x="418" y="128" font-size="18" fill="#b3392f">e = y − ŷ</text>
-            <text x="485" y="250" font-size="18" fill="#52606d">col(X)</text>
-            <path d="M405 198 l-15 -11 l-4 16" fill="none" stroke="#b3392f" stroke-width="2"/>
-          </svg>
-        </div>
-        <figcaption>Observation-space view: $\hat y$ is the orthogonal projection of $y$ onto $\operatorname{col}(X)$; the residual lies in the orthogonal complement.</figcaption>
-      </figure>
+<p><strong>Where it sits.</strong> Linear regression is <strong>supervised</strong> (we have labelled targets $y$), <strong>parametric</strong> (a fixed, finite set of parameters $\beta$), and used for <strong>regression</strong> (continuous $y$). It is the archetypal <em>low-variance, potentially-high-bias</em> model. In the landscape of the course it is the root of a family tree:</p>
 
-      <h3>4.1 Rank, trace and degrees of freedom</h3>
-      <p>An idempotent matrix has eigenvalues only $0$ or $1$. If $X$ has full column rank $p+1$, then</p>
-      $$\operatorname{rank}(H)=p+1,$$
-      and therefore
-      $$\operatorname{tr}(H)=p+1.$$
-      <p>This is the number of fitted parameters. The residual projector $I-H$ has rank</p>
-      $$n-(p+1)=n-p-1,$$
-      <p>which is the residual degrees of freedom.</p>
+<ul>
+  <li>Replace the identity link with a sigmoid → <strong>logistic regression</strong> (<span class="plain-ref" title="coming in a later week">Lecture 2</span>).</li>
+  <li>Add an $\ell_2$ penalty → <strong>ridge</strong>; an $\ell_1$ penalty → <strong>lasso</strong>.</li>
+  <li>Stack many of these with nonlinear activations → <strong>neural networks</strong> (<span class="plain-ref" title="coming in a later week">Lecture 19</span>).</li>
+  <li>Put a Gaussian prior on $\beta$ and integrate it out → <strong>Bayesian linear regression</strong>, whose kernelised limit is a <strong>Gaussian process</strong> (<span class="plain-ref" title="coming in a later week">Lecture 22</span>).</li>
+</ul>
 
-      <h3>4.2 The centred ANOVA decomposition</h3>
-      <p>With an intercept in the model, define $y_c=y-\bar y\mathbf 1$ and $\hat y_c=\hat y-\bar y\mathbf 1$. Since $\hat y_c\perp\hat e$,</p>
-      $$\|y_c\|_2^2=\|\hat y_c\|_2^2+\|\hat e\|_2^2,$$
-      i.e.
-      $$\mathrm{TSS}=\mathrm{ESS}+\mathrm{RSS}.$$
-      <p>This gives the familiar</p>
-      $$R^2=1-\frac{\mathrm{RSS}}{\mathrm{TSS}}=\frac{\mathrm{ESS}}{\mathrm{TSS}}.$$
-    </section>
+<p><strong>Assumptions</strong> (the classical linear model, in increasing strength):</p>
 
-    <section id="properties">
-      <h2>5. OLS as a statistical estimator</h2>
-      <p>Assume the data follow</p>
-      $$y=X\beta+\varepsilon,\qquad \mathbb E[\varepsilon\mid X]=0.$$
-      <p>Substitute this into the OLS estimator:</p>
-      $$
-      \hat\beta
-      =(X^\top X)^{-1}X^\top(X\beta+\varepsilon)
-      =\beta+(X^\top X)^{-1}X^\top\varepsilon.
-      $$
+<ol>
+  <li><strong>Linearity</strong>: $\mathbb{E}[y \mid x] = \beta_0 + \sum_j \beta_j x_j$. The conditional mean is affine in the parameters.</li>
+  <li><strong>Full rank / no perfect collinearity</strong>: the design matrix $X$ has linearly independent columns (so $X^\top X$ is invertible).</li>
+  <li><strong>Exogeneity / zero conditional mean of errors</strong>: $\mathbb{E}[\varepsilon \mid X] = 0$.</li>
+  <li><strong>Homoscedasticity</strong>: $\operatorname{Var}(\varepsilon_i \mid X) = \sigma^2$, constant across observations.</li>
+  <li><strong>No autocorrelation</strong>: $\operatorname{Cov}(\varepsilon_i, \varepsilon_j) = 0$ for $i \neq j$.</li>
+  <li><em>(For exact small-sample inference only)</em> <strong>Normality</strong>: $\varepsilon \mid X \sim \mathcal{N}(0, \sigma^2 I)$.</li>
+</ol>
 
-      <h3>5.1 Unbiasedness</h3>
-      <p>Conditioning on $X$,</p>
-      $$
-      \mathbb E[\hat\beta\mid X]
-      =\beta+(X^\top X)^{-1}X^\top\mathbb E[\varepsilon\mid X]
-      =\beta.
-      $$
-      <div class="result">$$\boxed{\mathbb E[\hat\beta\mid X]=\beta}$$</div>
+<p><strong>When these are reasonable.</strong> Assumptions 1–5 are often <em>approximately</em> fine for smooth relationships over a limited range, for engineered features, and when the noise is genuinely additive and roughly constant. Note the word "linear" refers to linearity <strong>in the parameters</strong>, not in the raw inputs: $y = \beta_0 + \beta_1 x + \beta_2 x^2$ is still a linear model — it is linear in $\beta$. This is why linear regression is far more flexible than it first appears.</p>
 
-      <h3>5.2 Covariance</h3>
-      <p>If, in addition,</p>
-      $$\operatorname{Var}(\varepsilon\mid X)=\sigma^2I,$$
-      then</p>
-      $$
-      \begin{aligned}
-      \operatorname{Var}(\hat\beta\mid X)
-      &=\operatorname{Var}\!\left((X^\top X)^{-1}X^\top\varepsilon\mid X\right)\\
-      &=(X^\top X)^{-1}X^\top(\sigma^2I)X(X^\top X)^{-1}\\
-      &=\sigma^2(X^\top X)^{-1}.
-      \end{aligned}
-      $$
-      <div class="equation-box">$$\operatorname{Var}(\hat\beta\mid X)=\sigma^2(X^\top X)^{-1}.$$</div>
-      <p>This formula connects statistical uncertainty directly to the geometry of the design matrix. If $X^\top X$ is nearly singular, some coefficient variances become very large.</p>
-    </section>
+<p><strong>When they are unreasonable.</strong> Multiplicative noise (income, prices — variance grows with level) breaks homoscedasticity; time series break independence; curved relationships break linearity; and heavy-tailed outliers wreck the least-squares fit because squared error punishes large residuals enormously.</p>
 
-    <section id="gauss-markov">
-      <h2>6. Gauss–Markov: why OLS is BLUE</h2>
-      <p>Under zero conditional mean, homoscedasticity and uncorrelated errors, OLS is the <strong>Best Linear Unbiased Estimator</strong>: among estimators linear in $y$ and unbiased for $\beta$, it has the smallest covariance matrix in the positive-semidefinite sense.</p>
-      <p>Let another linear estimator be</p>
-      $$\tilde\beta=Cy.$$
-      <p>Unbiasedness for every $\beta$ requires</p>
-      $$\mathbb E[Cy\mid X]=CX\beta=\beta,$$
-      hence
-      $$CX=I.$$
-      <p>Write</p>
-      $$C=(X^\top X)^{-1}X^\top+D.$$
-      <p>Since both $C$ and $(X^\top X)^{-1}X^\top$ are unbiased,</p>
-      $$DX=0.$$
-      <p>Now</p>
-      $$
-      \operatorname{Var}(\tilde\beta\mid X)=\sigma^2CC^\top.
-      $$
-      Substituting the decomposition of $C$ gives
-      $$
-      \begin{aligned}
-      CC^\top
-      &=\left[(X^\top X)^{-1}X^\top+D\right]
-        \left[X(X^\top X)^{-1}+D^\top\right]\\
-      &=(X^\top X)^{-1}+DD^\top,
-      \end{aligned}
-      $$
-      <p>because the cross terms vanish when $DX=0$. Therefore</p>
-      <div class="result">
-      $$
-      \operatorname{Var}(\tilde\beta\mid X)-\operatorname{Var}(\hat\beta\mid X)
-      =\sigma^2DD^\top\succeq0.
-      $$
-      </div>
-      <p>No normality assumption is needed for this result. It compares OLS with <em>linear unbiased</em> estimators; it does not say a biased estimator such as ridge cannot have lower mean-squared error.</p>
-    </section>
+<h2 id="s2">2. Core Intuition</h2>
 
-    <section id="inference">
-      <h2>7. Sampling distribution and inference</h2>
-      <p>If</p>
-      $$\varepsilon\mid X\sim\mathcal N(0,\sigma^2I),$$
-      then $\hat\beta$ is an affine transformation of a Gaussian vector, so</p>
-      <div class="equation-box">
-      $$\hat\beta\mid X\sim\mathcal N\!\left(\beta,\sigma^2(X^\top X)^{-1}\right).$$
-      </div>
-      <p>The residual sum of squares satisfies</p>
-      $$\frac{\mathrm{RSS}}{\sigma^2}\sim\chi^2_{n-p-1},$$
-      and is independent of $\hat\beta$. Hence the unbiased estimator</p>
-      $$s^2=\frac{\mathrm{RSS}}{n-p-1}$$
-      can replace $\sigma^2$ in coefficient standard errors.</p>
-      <p>For coefficient $j$,</p>
-      $$\operatorname{SE}(\hat\beta_j)=s\sqrt{[(X^\top X)^{-1}]_{jj}},$$
-      and
-      $$
-      \frac{\hat\beta_j-\beta_j}{\operatorname{SE}(\hat\beta_j)}
-      \sim t_{n-p-1}.
-      $$
-      <p>A two-sided $(1-\alpha)$ confidence interval is therefore</p>
-      $$
-      \hat\beta_j\pm t_{1-\alpha/2,n-p-1}\operatorname{SE}(\hat\beta_j).
-      $$
+<p>Suppose you have a scatter of points and you want the "best" line. What does <em>best</em> mean? Least squares says: <strong>the line for which the total squared vertical distance from the points to the line is as small as possible.</strong></p>
 
-      <h3>7.1 Mean-response and prediction intervals</h3>
-      <p>For a new augmented predictor vector $x_*$, the fitted mean is</p>
-      $$\hat y_*=x_*^\top\hat\beta.$$
-      <p>Its variance due to coefficient uncertainty is</p>
-      $$\sigma^2x_*^\top(X^\top X)^{-1}x_*.$$
-      <p>A new observation also contains fresh noise, so</p>
-      $$
-      \operatorname{Var}(y_* - \hat y_*\mid X,x_*)
-      =\sigma^2\left[1+x_*^\top(X^\top X)^{-1}x_*\right].
-      $$
-      <p>This is why a prediction interval for a single future observation is wider than a confidence interval for the conditional mean.</p>
-    </section>
+<p>Three complementary intuitions:</p>
 
-    <section id="numerics">
-      <h2>8. Numerical linear algebra: why the textbook inverse is not the algorithm</h2>
-      <p>The identity</p>
-      $$\hat\beta=(X^\top X)^{-1}X^\top y$$
-      is useful for theory. Numerically, explicitly forming the inverse is usually a poor route.</p>
+<p><strong>Optimisation intuition.</strong> We define a cost that measures misfit — the sum of squared residuals — and we slide the line around (adjust slope and intercept) until the cost bottoms out. Because the cost is a smooth, upward-opening (convex) bowl in the parameters, there is a <em>unique</em> bottom and we can find it exactly by setting derivatives to zero. No local minima, no initialisation worries. This convexity is a gift we will sorely miss in deep learning.</p>
 
-      <h3>8.1 Conditioning</h3>
-      <p>For full-rank $X$, the 2-norm condition number is</p>
-      $$\kappa_2(X)=\frac{\sigma_{\max}(X)}{\sigma_{\min}(X)}.$$
-      <p>The singular values of $X^\top X$ are the squared singular values of $X$, so</p>
-      <div class="equation-box">$$\kappa_2(X^\top X)=\kappa_2(X)^2.$$</div>
-      <p>Thus forming the normal-equation matrix squares the conditioning problem. Near-collinear predictors make the smallest singular value small; squaring it makes the numerical separation worse.</p>
+<p><strong>Geometric intuition.</strong> Stack the $n$ observed targets into a vector $y \in \mathbb{R}^n$. Every possible fitted-value vector $\hat y = X\beta$ lives in the <em>column space</em> of $X$ — a $(p{+}1)$-dimensional subspace of $\mathbb{R}^n$. We cannot in general reach $y$ exactly (it's outside that subspace, thanks to noise). The closest point in the subspace to $y$ is its <strong>orthogonal projection</strong>. Least squares <em>is</em> orthogonal projection: $\hat y$ is the shadow of $y$ onto the space spanned by the predictors, and the residual $y - \hat y$ is perpendicular to that space. Hold this picture; it explains almost everything.</p>
 
-      <h3>8.2 QR factorisation</h3>
-      <p>For full-column-rank $X$, let the thin QR factorisation be</p>
-      $$X=QR,$$
-      where $Q^\top Q=I$ and $R$ is upper triangular. Decompose $y$ into a component in $\operatorname{col}(Q)$ and an orthogonal remainder. Then</p>
-      $$
-      \|y-X\beta\|_2^2
-      =\|Q^\top y-R\beta\|_2^2+\|(I-QQ^\top)y\|_2^2.
-      $$
-      <p>The second term does not depend on $\beta$, so minimising the residual norm reduces to</p>
-      $$R\hat\beta=Q^\top y.$$
-      <p>We solve this triangular system by back-substitution. QR avoids constructing $X^\top X$ and therefore avoids squaring its condition number.</p>
+<p><strong>Probabilistic intuition.</strong> Assume $y_i = x_i^\top \beta + \varepsilon_i$ with $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$ independent. Then fitting by <em>maximum likelihood</em> — finding the $\beta$ that makes the observed data most probable — turns out to be <strong>identical</strong> to least squares. The Gaussian's $e^{-\text{(residual)}^2/2\sigma^2}$ form means maximising log-likelihood minimises summed squared residuals. So "minimise squared error" is not arbitrary; it is the maximum-likelihood answer <em>under Gaussian noise</em>.</p>
 
-      <h3>8.3 Singular value decomposition</h3>
-      <p>Let</p>
-      $$X=U\Sigma V^\top.$$
-      <p>The Moore–Penrose pseudoinverse is</p>
-      $$X^+=V\Sigma^+U^\top,$$
-      so the minimum-norm least-squares solution is</p>
-      <div class="equation-box">$$\hat\beta=X^+y=V\Sigma^+U^\top y.$$</div>
-      <p>SVD makes numerical rank explicit through the singular values. It remains well defined when $X$ is rank-deficient, where the normal-equation inverse does not exist.</p>
+<p><em>Tiny numerical seed.</em> Points $(1,2),(2,2),(3,4)$. Eyeballing, the line rises by about 1 per unit $x$ and passes near $y\approx1$ at $x=0$. We'll compute the exact least-squares line by hand in §6 and get slope $1$, intercept $\tfrac{2}{3}$.</p>
 
-      <div class="warning"><span class="kicker">Practical rule.</span> The normal equations are excellent for derivation. Numerical software should solve the least-squares problem through a stable factorisation or an appropriate iterative least-squares method.</div>
-    </section>
+<h2 id="s3">3. Mathematical Formulation</h2>
 
-    <section id="optimisation">
-      <h2>9. The optimisation view: gradient descent and Newton's method</h2>
-      <p>It is useful to rescale the objective as</p>
-      $$J(\beta)=\frac{1}{2n}\|y-X\beta\|_2^2.$$
-      <p>Then</p>
-      $$\nabla J(\beta)=\frac1nX^\top(X\beta-y),$$
-      and
-      $$\nabla^2J(\beta)=\frac1nX^\top X.$$
+<p><strong>Notation.</strong> We have $n$ observations. For observation $i$, let $x_i \in \mathbb{R}^{p}$ be its feature vector and $y_i \in \mathbb{R}$ its target. To absorb the intercept, we prepend a constant $1$, so the <em>augmented</em> feature vector is $\tilde x_i = (1, x_{i1}, \dots, x_{ip})^\top \in \mathbb{R}^{p+1}$. Collect everything:</p>
 
-      <h3>9.1 Gradient descent</h3>
-      <p>The batch update is</p>
-      <div class="equation-box">$$\beta_{k+1}=\beta_k-\eta\frac1nX^\top(X\beta_k-y).$$</div>
-      <p>If $X$ has full column rank, the objective is strongly convex. With a suitable step size, gradient descent converges geometrically. The convergence rate is governed by the spectrum of $X^\top X$; poor conditioning means a long, narrow quadratic bowl and slow progress in the weak-curvature directions.</p>
-      <p>For this scaling of $J$, a sufficient fixed-step condition is</p>
-      $$0<\eta<\frac{2n}{\lambda_{\max}(X^\top X)}.$$
+$$
+X = \begin{pmatrix} 1 & x_{11} & \cdots & x_{1p} \\ 1 & x_{21} & \cdots & x_{2p} \\ \vdots & & & \vdots \\ 1 & x_{n1} & \cdots & x_{np} \end{pmatrix} \in \mathbb{R}^{n \times (p+1)}, \qquad y = \begin{pmatrix} y_1 \\ \vdots \\ y_n \end{pmatrix}, \qquad \beta = \begin{pmatrix} \beta_0 \\ \vdots \\ \beta_p \end{pmatrix}.
+$$
 
-      <h3>9.2 Newton's method lands on OLS in one step</h3>
-      <p>Newton's update is</p>
-      $$
-      \beta_{k+1}=\beta_k-[\nabla^2J]^{-1}\nabla J(\beta_k).
-      $$
-      Substituting the gradient and Hessian,
-      $$
-      \begin{aligned}
-      \beta_{k+1}
-      &=\beta_k-(X^\top X)^{-1}X^\top(X\beta_k-y)\\
-      &=\beta_k-\beta_k+(X^\top X)^{-1}X^\top y\\
-      &=\hat\beta.
-      \end{aligned}
-      $$
-      <p>Because the objective is exactly quadratic and the Hessian is constant, one Newton step reaches the minimiser from any starting point when $X^\top X$ is invertible.</p>
-    </section>
+<p>$X$ is the <strong>design matrix</strong>. Each <em>row</em> is an observation; each <em>column</em> is a feature (the first column is all ones).</p>
 
-    <section id="example">
-      <h2>10. Worked example: one dataset, three views</h2>
-      <p>Take</p>
-      $$(x,y)=(1,2),(2,2),(3,4).$$
-      <p>With an intercept,</p>
-      $$
-      X=\begin{pmatrix}1&1\\1&2\\1&3\end{pmatrix},\qquad
-      y=\begin{pmatrix}2\\2\\4\end{pmatrix}.
-      $$
+<p><strong>The model.</strong></p>
+$$ y = X\beta + \varepsilon, \qquad \mathbb{E}[\varepsilon \mid X] = 0, \quad \operatorname{Var}(\varepsilon \mid X) = \sigma^2 I_n. $$
 
-      <h3>10.1 Solve the normal equations</h3>
-      <p>Compute</p>
-      $$
-      X^\top X
-      =\begin{pmatrix}3&6\\6&14\end{pmatrix},\qquad
-      X^\top y
-      =\begin{pmatrix}8\\18\end{pmatrix}.
-      $$
-      Therefore
-      $$
-      \begin{pmatrix}3&6\\6&14\end{pmatrix}
-      \begin{pmatrix}\hat\beta_0\\\hat\beta_1\end{pmatrix}
-      =\begin{pmatrix}8\\18\end{pmatrix}.
-      $$
-      The determinant is $42-36=6$, and
-      $$
-      (X^\top X)^{-1}
-      =\frac16\begin{pmatrix}14&-6\\-6&3\end{pmatrix}.
-      $$
-      Hence
-      $$
-      \hat\beta
-      =\frac16
-      \begin{pmatrix}14&-6\\-6&3\end{pmatrix}
-      \begin{pmatrix}8\\18\end{pmatrix}
-      =\begin{pmatrix}2/3\\1\end{pmatrix}.
-      $$
-      Thus
-      <div class="result">$$\hat y=\frac23+x.$$</div>
+<p><strong>The loss (objective).</strong> The residual sum of squares:</p>
+$$ \text{RSS}(\beta) = \sum_{i=1}^n \big(y_i - x_i^\top \beta\big)^2 = \|y - X\beta\|_2^2 = (y - X\beta)^\top (y - X\beta). $$
 
-      <h3>10.2 Check the residual orthogonality</h3>
-      <p>The fitted values are</p>
-      $$\hat y=\begin{pmatrix}5/3\\8/3\\11/3\end{pmatrix},$$
-      so
-      $$
-      \hat e=y-\hat y
-      =\begin{pmatrix}1/3\\-2/3\\1/3\end{pmatrix}.
-      $$
-      Now</p>
-      $$
-      X^\top\hat e
-      =\begin{pmatrix}1&1&1\\1&2&3\end{pmatrix}
-      \begin{pmatrix}1/3\\-2/3\\1/3\end{pmatrix}
-      =\begin{pmatrix}0\\0\end{pmatrix}.
-      $$
-      <p>The first zero says the residuals sum to zero; the second says they are orthogonal to the predictor column. Algebra and geometry are saying the same thing.</p>
-    </section>
+<p>We seek $\hat\beta = \arg\min_\beta \text{RSS}(\beta)$.</p>
 
-    <section id="collinearity">
-      <h2>11. Near multicollinearity: when coefficients explode</h2>
-      <p>Take two almost identical predictors:</p>
-<pre><code>rng = np.random.default_rng(7)
-n = 80
-x1 = rng.normal(size=n)
-x2 = x1 + 1e-6 * rng.normal(size=n)
-X  = np.column_stack([x1, x2])
-y  = 3*x1 + 0.05*rng.normal(size=n)</code></pre>
-      <p>With an intercept, let $X_d=[\mathbf1,X]$. A least-squares fit gives approximately</p>
-      <div class="equation-box">$$\hat\beta_1\approx5900.64,\qquad \hat\beta_2\approx-5897.65.$$</div>
-      <p>The individual coefficients are unstable, yet their sum is about $2.992$, close to the effective slope $3$, and the fitted RMSE is about $0.0458$.</p>
-      <p>For the augmented design matrix,</p>
-      $$\kappa_2(X_d)\approx2.12\times10^6,$$
-      while
-      $$\kappa_2(X_d^\top X_d)\approx4.49\times10^{12}.$$
-      <p>The covariance formula explains the instability:</p>
-      $$\operatorname{Var}(\hat\beta\mid X_d)=\sigma^2(X_d^\top X_d)^{-1}.$$
-      <p>If an eigenvalue of $X_d^\top X_d$ approaches zero, the corresponding eigenvalue of its inverse becomes large. Small perturbations in the data can then produce large changes in the separate coefficients.</p>
-      <div class="note"><span class="kicker">Interpretation.</span> Near multicollinearity is mainly a coefficient-stability and variance problem. Perfect collinearity makes the individual coefficients non-identifiable because the least-squares minimiser is no longer unique.</div>
-    </section>
+<p><strong>Probabilistic form (likelihood).</strong> Under Gaussian noise, each observation has density</p>
+$$ p(y_i \mid x_i, \beta, \sigma^2) = \frac{1}{\sqrt{2\pi\sigma^2}} \exp\!\left(-\frac{(y_i - x_i^\top\beta)^2}{2\sigma^2}\right). $$
+<p>By independence the <strong>likelihood</strong> is the product, and the <strong>log-likelihood</strong> is</p>
+$$ \ell(\beta, \sigma^2) = -\frac{n}{2}\log(2\pi\sigma^2) - \frac{1}{2\sigma^2}\sum_{i=1}^n (y_i - x_i^\top\beta)^2 = -\frac{n}{2}\log(2\pi\sigma^2) - \frac{\text{RSS}(\beta)}{2\sigma^2}. $$
+<p>Because only the last term depends on $\beta$, and it is $-\text{RSS}/(2\sigma^2)$, <strong>maximising $\ell$ over $\beta$ is exactly minimising RSS.</strong> Least squares $\equiv$ Gaussian MLE.</p>
 
-    <section id="python">
-      <h2>12. What Python actually does</h2>
-      <p>A transparent implementation should solve the least-squares problem directly rather than explicitly forming $(X^\top X)^{-1}$:</p>
+<p><strong>Regularised variants</strong> (introduced now, expanded in §19):</p>
+$$ \text{Ridge: } \min_\beta \|y - X\beta\|_2^2 + \lambda \|\beta_{1:p}\|_2^2, \qquad \text{Lasso: } \min_\beta \|y - X\beta\|_2^2 + \lambda \|\beta_{1:p}\|_1. $$
+<p>(The intercept $\beta_0$ is conventionally left unpenalised.)</p>
+
+<h2 id="s4">4. Derivation</h2>
+
+<h3>4.1 The normal equations and the OLS estimator</h3>
+
+<p>Expand the objective:</p>
+$$ \text{RSS}(\beta) = (y - X\beta)^\top(y - X\beta) = y^\top y - 2\beta^\top X^\top y + \beta^\top X^\top X \beta. $$
+<p>(The middle term: $y^\top X\beta$ and $\beta^\top X^\top y$ are scalars equal to each other, hence the factor 2.)</p>
+
+<p>Take the gradient with respect to $\beta$. Using $\nabla_\beta (\beta^\top A \beta) = 2A\beta$ for symmetric $A$, and $\nabla_\beta(b^\top \beta) = b$:</p>
+$$ \nabla_\beta \text{RSS} = -2 X^\top y + 2 X^\top X \beta. $$
+<p>Set to zero:</p>
+<div class="box">
+$$ X^\top X \,\hat\beta = X^\top y \qquad \text{(the normal equations).} $$
+</div>
+<p>If $X^\top X$ is invertible (full column rank),</p>
+<div class="box">
+$$ \hat\beta = (X^\top X)^{-1} X^\top y. $$
+</div>
+
+<p>To confirm this is a <strong>minimum</strong>, the Hessian is $\nabla^2_\beta \text{RSS} = 2X^\top X$, which is positive semidefinite always, and positive definite when $X$ has full column rank. A convex function with a positive-definite Hessian has a unique global minimum.</p>
+
+<p><strong>Why "normal" equations?</strong> Rewrite them as $X^\top(y - X\hat\beta) = 0$, i.e. $X^\top \hat\varepsilon = 0$: <em>every column of $X$ is orthogonal (normal) to the residual vector.</em> This is the algebraic statement of the projection picture.</p>
+
+<h3>4.2 The projection / hat matrix</h3>
+
+<p>The fitted values are</p>
+$$ \hat y = X\hat\beta = X(X^\top X)^{-1}X^\top y = H y, \qquad H := X(X^\top X)^{-1}X^\top. $$
+<p>$H$ is the <strong>hat matrix</strong> ("puts the hat on $y$"). It is the orthogonal projector onto the column space of $X$:</p>
+<ul>
+  <li><strong>Symmetric</strong>: $H^\top = H$.</li>
+  <li><strong>Idempotent</strong>: $H^2 = H$ (projecting twice = projecting once).</li>
+  <li>Its eigenvalues are all $0$ or $1$; $\operatorname{trace}(H) = p+1$ = dimension of the column space = number of parameters.</li>
+</ul>
+
+<p>The residuals are $\hat\varepsilon = (I - H)y$, and $I - H$ projects onto the orthogonal complement. Since $H(I-H) = 0$, fitted values and residuals are orthogonal — Pythagoras gives the ANOVA decomposition $\|y\|^2 = \|\hat y\|^2 + \|\hat\varepsilon\|^2$ (after centering).</p>
+
+<h3>4.3 Gauss–Markov theorem (why OLS is special)</h3>
+
+<p><strong>Claim.</strong> Under assumptions 1–5 (linearity, full rank, zero-mean errors, homoscedasticity, no autocorrelation — <em>no normality needed</em>), the OLS estimator $\hat\beta$ is <strong>BLUE</strong>: the <strong>B</strong>est <strong>L</strong>inear <strong>U</strong>nbiased <strong>E</strong>stimator — the one with smallest variance among all estimators that are (a) linear in $y$ and (b) unbiased.</p>
+
+<p><em>Unbiasedness.</em> $\hat\beta = (X^\top X)^{-1}X^\top y = (X^\top X)^{-1}X^\top(X\beta + \varepsilon) = \beta + (X^\top X)^{-1}X^\top \varepsilon$. Taking expectations, since $\mathbb{E}[\varepsilon\mid X]=0$: $\mathbb{E}[\hat\beta \mid X] = \beta$.</p>
+
+<p><em>Variance.</em></p>
+$$ \operatorname{Var}(\hat\beta \mid X) = (X^\top X)^{-1}X^\top \,\operatorname{Var}(\varepsilon)\, X (X^\top X)^{-1} = \sigma^2 (X^\top X)^{-1} $$
+<p>using $\operatorname{Var}(\varepsilon) = \sigma^2 I$.</p>
+
+<p><em>Optimality sketch.</em> Any other linear unbiased estimator can be written $\tilde\beta = ((X^\top X)^{-1}X^\top + D)y$ for some matrix $D$. Unbiasedness forces $DX = 0$. Working out $\operatorname{Var}(\tilde\beta) = \sigma^2(X^\top X)^{-1} + \sigma^2 DD^\top$, and since $DD^\top$ is positive semidefinite, $\operatorname{Var}(\tilde\beta) \succeq \operatorname{Var}(\hat\beta)$. OLS wins.</p>
+
+<p>The theorem's punchline: <em>if the classical assumptions hold, you cannot beat OLS with any other linear unbiased estimator.</em> The escape hatch — and it's the whole justification for ridge/lasso — is to allow <strong>biased</strong> estimators, which can have dramatically lower variance and thus lower total error.</p>
+
+<h3>4.4 Estimating $\sigma^2$</h3>
+
+<p>An unbiased estimator of the noise variance is</p>
+$$ \hat\sigma^2 = \frac{\text{RSS}}{n - (p+1)} = \frac{\|\hat\varepsilon\|^2}{n - p - 1}. $$
+<p>The denominator uses <strong>degrees of freedom</strong> $n - p - 1$, not $n$: we "spent" $p+1$ degrees fitting the parameters, and the residuals are constrained to lie in an $(n - p - 1)$-dimensional space (the orthogonal complement of the column space). Dividing by $n$ would underestimate $\sigma^2$.</p>
+
+<h2 id="s5">5. Algorithm</h2>
+
+<p><strong>Closed form (small/medium $p$).</strong></p>
+
+<pre><code>Input: design matrix X (n × (p+1), first column ones), targets y (n)
+1. Form the Gram matrix    G = Xᵀ X          # (p+1)×(p+1)
+2. Form the moment vector  c = Xᵀ y          # (p+1)
+3. Solve the linear system  G β = c  for β    # DO NOT invert G explicitly
+4. Fitted values:  ŷ = X β
+5. Residuals:      e = y − ŷ
+6. σ̂² = (eᵀe) / (n − p − 1)
+7. Cov(β̂) = σ̂² G⁻¹   → standard errors are sqrt of diagonal
+Output: β̂, σ̂², standard errors, fitted values, residuals</code></pre>
+
+<p><strong>Numerically stable practice:</strong> never compute $(X^\top X)^{-1}$ explicitly. Instead solve via the <strong>QR decomposition</strong> $X = QR$ (then $\hat\beta = R^{-1}Q^\top y$, a triangular solve) or the <strong>SVD</strong> $X = U\Sigma V^\top$ (then $\hat\beta = V\Sigma^{-1}U^\top y$). Forming $X^\top X$ squares the condition number, amplifying rounding error; QR/SVD work on $X$ directly.</p>
+
+<p><strong>Iterative (huge $n$ or $p$).</strong> When $X$ doesn't fit in memory, minimise RSS by gradient descent (§9): $\beta \leftarrow \beta - \eta X^\top(X\beta - y)$, or stochastic gradient descent on mini-batches.</p>
+
+<h2 id="s6">6. Worked Numerical Example</h2>
+
+<p>Data: $(x,y) = (1,2), (2,2), (3,4)$. Fit $y = \beta_0 + \beta_1 x$.</p>
+
+$$ X = \begin{pmatrix} 1 & 1 \\ 1 & 2 \\ 1 & 3 \end{pmatrix}, \quad y = \begin{pmatrix} 2 \\ 2 \\ 4 \end{pmatrix}. $$
+
+<p><strong>Step 1 — Gram matrix $X^\top X$:</strong></p>
+$$ X^\top X = \begin{pmatrix} 3 & 6 \\ 6 & 14 \end{pmatrix} $$
+<p>(top-left = number of points = 3; top-right = $\sum x_i = 6$; bottom-right = $\sum x_i^2 = 1+4+9 = 14$).</p>
+
+<p><strong>Step 2 — moment vector $X^\top y$:</strong></p>
+$$ X^\top y = \begin{pmatrix} \sum y_i \\ \sum x_i y_i \end{pmatrix} = \begin{pmatrix} 8 \\ 2\cdot1 + 2\cdot2 + 4\cdot3 \end{pmatrix} = \begin{pmatrix} 8 \\ 18 \end{pmatrix}. $$
+
+<p><strong>Step 3 — invert the $2\times2$ Gram matrix.</strong> Determinant $= 3\cdot14 - 6\cdot6 = 42 - 36 = 6$.</p>
+$$ (X^\top X)^{-1} = \frac{1}{6}\begin{pmatrix} 14 & -6 \\ -6 & 3 \end{pmatrix}. $$
+
+<p><strong>Step 4 — solve for $\hat\beta$:</strong></p>
+$$ \hat\beta = \frac{1}{6}\begin{pmatrix} 14 & -6 \\ -6 & 3 \end{pmatrix}\begin{pmatrix} 8 \\ 18 \end{pmatrix} = \frac{1}{6}\begin{pmatrix} 112 - 108 \\ -48 + 54 \end{pmatrix} = \frac{1}{6}\begin{pmatrix} 4 \\ 6 \end{pmatrix} = \begin{pmatrix} 2/3 \\ 1 \end{pmatrix}. $$
+
+<p>So $\hat\beta_0 = \tfrac{2}{3} \approx 0.667$, $\hat\beta_1 = 1$. The line is $\hat y = \tfrac{2}{3} + x$.</p>
+
+<p><strong>Step 5 — fitted values and residuals:</strong></p>
+$$ \hat y = \begin{pmatrix} 2/3 + 1 \\ 2/3 + 2 \\ 2/3 + 3 \end{pmatrix} = \begin{pmatrix} 5/3 \\ 8/3 \\ 11/3 \end{pmatrix}, \qquad \hat\varepsilon = y - \hat y = \begin{pmatrix} 2 - 5/3 \\ 2 - 8/3 \\ 4 - 11/3 \end{pmatrix} = \begin{pmatrix} 1/3 \\ -2/3 \\ 1/3 \end{pmatrix}. $$
+
+<p><strong>Sanity checks.</strong> Residuals sum to $\tfrac13 - \tfrac23 + \tfrac13 = 0$ (guaranteed by the intercept column: $X^\top\hat\varepsilon = 0$ includes the all-ones row). And $\sum x_i \hat\varepsilon_i = 1\cdot\tfrac13 + 2\cdot(-\tfrac23) + 3\cdot\tfrac13 = \tfrac13 - \tfrac43 + 1 = 0$ ✓ — residuals orthogonal to the $x$ column, exactly the normal equations.</p>
+
+<p><strong>RSS</strong> $= (\tfrac13)^2 + (\tfrac23)^2 + (\tfrac13)^2 = \tfrac19 + \tfrac49 + \tfrac19 = \tfrac69 = \tfrac23$.<br>
+$\hat\sigma^2 = \text{RSS}/(n - p - 1) = (2/3)/(3 - 2) = \tfrac23$.</p>
+
+<p><strong>$R^2$:</strong> total sum of squares about $\bar y = 8/3$: $\text{TSS} = (2-\tfrac83)^2 + (2-\tfrac83)^2 + (4-\tfrac83)^2 = \tfrac49 + \tfrac49 + \tfrac{16}{9} = \tfrac{24}{9} = \tfrac83$. Then $R^2 = 1 - \text{RSS}/\text{TSS} = 1 - \tfrac{2/3}{8/3} = 1 - \tfrac14 = 0.75$.</p>
+
+<figure>
+<div class="fig-wrap">
+<svg viewBox="0 0 420 300" role="img" aria-label="Scatter of the three data points with the fitted least-squares line and vertical residual stubs">
+  <!-- axes -->
+  <line x1="60" y1="260" x2="390" y2="260" stroke="var(--border)" stroke-width="1.5"/>
+  <line x1="60" y1="30" x2="60" y2="260" stroke="var(--border)" stroke-width="1.5"/>
+  <text x="380" y="278" font-family="sans-serif" font-size="11" fill="var(--muted)">x</text>
+  <text x="40" y="40" font-family="sans-serif" font-size="11" fill="var(--muted)">y</text>
+  <!-- x ticks -->
+  <text x="140" y="275" text-anchor="middle" font-family="sans-serif" font-size="10" fill="var(--muted)">1</text>
+  <text x="220" y="275" text-anchor="middle" font-family="sans-serif" font-size="10" fill="var(--muted)">2</text>
+  <text x="300" y="275" text-anchor="middle" font-family="sans-serif" font-size="10" fill="var(--muted)">3</text>
+  <!-- y ticks -->
+  <text x="53" y="176" text-anchor="end" font-family="sans-serif" font-size="10" fill="var(--muted)">2</text>
+  <text x="53" y="88" text-anchor="end" font-family="sans-serif" font-size="10" fill="var(--muted)">4</text>
+  <!-- fitted line y = 2/3 + x -->
+  <line x1="60" y1="230.7" x2="390" y2="41.3" stroke="var(--accent)" stroke-width="2.2"/>
+  <text x="330" y="70" font-family="sans-serif" font-size="12" fill="var(--accent)">&#375; = 2/3 + x</text>
+  <!-- residual stubs (dashed) -->
+  <line x1="140" y1="172" x2="140" y2="186.7" stroke="#d9534f" stroke-width="2" stroke-dasharray="3 2"/>
+  <line x1="220" y1="172" x2="220" y2="142.7" stroke="#d9534f" stroke-width="2" stroke-dasharray="3 2"/>
+  <line x1="300" y1="84"  x2="300" y2="98.7"  stroke="#d9534f" stroke-width="2" stroke-dasharray="3 2"/>
+  <!-- data points -->
+  <circle cx="140" cy="172" r="5" fill="var(--accent-light)"/>
+  <circle cx="220" cy="172" r="5" fill="var(--accent-light)"/>
+  <circle cx="300" cy="84"  r="5" fill="var(--accent-light)"/>
+  <!-- fitted points (open) -->
+  <circle cx="140" cy="186.7" r="3.5" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.5"/>
+  <circle cx="220" cy="142.7" r="3.5" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.5"/>
+  <circle cx="300" cy="98.7"  r="3.5" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.5"/>
+  <!-- legend -->
+  <circle cx="72" cy="45" r="5" fill="var(--accent-light)"/>
+  <text x="82" y="49" font-family="sans-serif" font-size="10" fill="var(--fg)">observed y</text>
+  <line x1="160" y1="45" x2="178" y2="45" stroke="#d9534f" stroke-width="2" stroke-dasharray="3 2"/>
+  <text x="184" y="49" font-family="sans-serif" font-size="10" fill="var(--fg)">residual</text>
+</svg>
+</div>
+<figcaption>Feature-space view of the worked example. The least-squares line minimises the sum of the squared lengths of the red vertical residual stubs; the residuals sum to zero and are orthogonal to the x-column, exactly the normal equations.</figcaption>
+</figure>
+
+<h2 id="s7">7. Geometry and Visual Interpretation</h2>
+
+<p>There are two geometric pictures, and confusing them is a common source of muddle.</p>
+
+<p><strong>Feature-space picture ($\mathbb{R}^{p+1}$, "the scatterplot").</strong> Points live in feature-by-target space; the model is a hyperplane (a line when $p=1$). Fitting tilts and shifts the hyperplane to minimise summed squared <em>vertical</em> distances. This is the picture most people draw. A good visualisation: scatter of $(x,y)$, the fitted line, and short vertical stubs marking each residual.</p>
+
+<p><strong>Observation-space picture ($\mathbb{R}^n$, "the projection").</strong> This is the deeper one. The target vector $y$ is a single point in $n$-dimensional space. The columns of $X$ span a $(p+1)$-dimensional subspace (the <em>column space</em>). $\hat y$ is the <strong>orthogonal projection</strong> of $y$ onto that subspace — the closest reachable point. The residual $\hat\varepsilon = y - \hat y$ is the perpendicular dropped from $y$ to the subspace. A good visualisation: a flat plane (the column space) sitting in 3D, the point $y$ floating above it, and $\hat y$ as its foot-of-perpendicular, with the right-angle mark between $\hat\varepsilon$ and the plane. This picture <em>is</em> the normal equations and <em>is</em> the Gauss–Markov geometry; the Pythagorean relation $\|y\|^2 = \|\hat y\|^2 + \|\hat\varepsilon\|^2$ falls straight out.</p>
+
+<p><strong>$R^2$ geometrically</strong> is $\cos^2\theta$, where $\theta$ is the angle between the centered $y$ and its projection onto the centered column space. Perfect fit → $y$ lies in the subspace → $\theta = 0$ → $R^2 = 1$.</p>
+
+<figure>
+<div class="fig-wrap">
+<svg viewBox="0 0 460 300" role="img" aria-label="Observation-space projection: the target vector y projected orthogonally onto the column space plane gives the fitted vector, with the residual perpendicular">
+  <!-- column-space plane (parallelogram) -->
+  <polygon points="70,210 300,240 400,180 170,150" fill="var(--box-bg)" stroke="var(--box-border)" stroke-width="1.5" opacity="0.9"/>
+  <text x="360" y="205" font-family="sans-serif" font-size="12" fill="var(--muted)">col(X) — reachable &#375; = X&#946;</text>
+  <!-- origin -->
+  <circle cx="150" cy="195" r="3" fill="var(--fg)"/>
+  <text x="132" y="205" font-family="sans-serif" font-size="11" fill="var(--muted)">0</text>
+  <!-- y vector (up out of plane) -->
+  <line x1="150" y1="195" x2="270" y2="70" stroke="var(--accent)" stroke-width="2.4" marker-end="url(#arrY)"/>
+  <text x="272" y="62" font-family="sans-serif" font-size="14" fill="var(--accent)">y</text>
+  <!-- fitted yhat (in plane) -->
+  <line x1="150" y1="195" x2="285" y2="175" stroke="var(--accent-light)" stroke-width="2.4" marker-end="url(#arrYh)"/>
+  <text x="292" y="178" font-family="sans-serif" font-size="14" fill="var(--accent-light)">&#375;</text>
+  <!-- residual (perpendicular) from yhat tip to y tip -->
+  <line x1="285" y1="175" x2="270" y2="70" stroke="#d9534f" stroke-width="2.2" stroke-dasharray="5 3" marker-end="url(#arrR)"/>
+  <text x="292" y="120" font-family="sans-serif" font-size="13" fill="#d9534f">e = y &#8722; &#375;</text>
+  <!-- right-angle marker at yhat tip -->
+  <path d="M285,175 L280,171 L284,164" fill="none" stroke="#d9534f" stroke-width="1.3"/>
+  <defs>
+    <marker id="arrY" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="var(--accent)"/></marker>
+    <marker id="arrYh" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="var(--accent-light)"/></marker>
+    <marker id="arrR" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#d9534f"/></marker>
+  </defs>
+</svg>
+</div>
+<figcaption>Observation-space view in &#8477;&#8319;. The target y lives outside the column space of X; least squares drops a perpendicular, so the fitted vector &#375; is the orthogonal projection of y onto col(X) and the residual e is at right angles to the plane — the geometric meaning of X&#7488;e = 0.</figcaption>
+</figure>
+
+<h2 id="s8">8. Statistical Interpretation</h2>
+
+<p>Linear regression is where machine learning and classical inference genuinely overlap, so it repays careful reading.</p>
+
+<p><strong>$\hat\beta$ as an estimator.</strong> It is a random quantity (depends on the random $\varepsilon$). We showed it is <strong>unbiased</strong> ($\mathbb{E}[\hat\beta]=\beta$) and has covariance $\sigma^2(X^\top X)^{-1}$. It is also <strong>consistent</strong> ($\hat\beta \to \beta$ as $n\to\infty$, provided $\tfrac1n X^\top X$ converges to an invertible matrix) and, under normal errors, <strong>efficient</strong> (attains the Cramér–Rao lower bound — no unbiased estimator does better).</p>
+
+<p><strong>Standard errors.</strong> $\operatorname{SE}(\hat\beta_j) = \hat\sigma \sqrt{[(X^\top X)^{-1}]_{jj}}$. Small when: noise is small, sample is large, the feature has high variance, and it's uncorrelated with other features (that last is why multicollinearity inflates SEs — see §18).</p>
+
+<p><strong>Hypothesis testing.</strong> Under normality, $\dfrac{\hat\beta_j - \beta_j}{\operatorname{SE}(\hat\beta_j)} \sim t_{\,n-p-1}$. The usual "is this coefficient significant?" $t$-test compares $\hat\beta_j / \operatorname{SE}(\hat\beta_j)$ to a $t$ distribution; the $F$-test compares nested models.</p>
+
+<p><strong>Confidence interval for a coefficient:</strong></p>
+$$ \hat\beta_j \pm t_{1-\alpha/2,\,n-p-1}\cdot \operatorname{SE}(\hat\beta_j). $$
+<p>This is an interval for a <em>parameter</em> — a statement about our uncertainty in the slope.</p>
+
+<p><strong>Confidence interval for the mean response</strong> at a new point $x_\ast$: uncertainty in $\mathbb{E}[y\mid x_\ast] = x_\ast^\top\beta$, with variance $\sigma^2 x_\ast^\top (X^\top X)^{-1} x_\ast$.</p>
+
+<p><strong>Prediction interval for a new observation</strong> $y_\ast$: this must additionally include the irreducible noise $\sigma^2$, so its variance is $\sigma^2\big(1 + x_\ast^\top (X^\top X)^{-1} x_\ast\big)$ — always wider than the confidence interval. This distinction — <em>where will the average land</em> vs <em>where will a single new point land</em> — is one of the most frequently botched ideas in applied work.</p>
+
+<p><strong>ML vs inference framing.</strong> A machine learner asks "does the model predict new $y$ well?" and reaches for cross-validated test error. A statistician asks "is $\beta_3$ different from zero, and how sure am I?" and reaches for $t$-tests and CIs. Same fitted object, different questions. Crucially, the inference machinery (SEs, $p$-values) is only valid if the assumptions hold <em>and</em> you didn't peek at the data to choose the model — the ML habit of trying many feature sets silently invalidates the classical $p$-values.</p>
+
+<h2 id="s9">9. Training and Optimisation</h2>
+
+<p><strong>Closed form.</strong> Because RSS is convex quadratic, the minimiser is the exact solution of the normal equations — no iteration needed. Solve $X^\top X\,\hat\beta = X^\top y$ by Cholesky (fast, if well-conditioned), or fit via QR/SVD directly on $X$ (more stable). Cost is dominated by the factorisation (see §12).</p>
+
+<p><strong>When to iterate instead.</strong> For very large $n$ (rows don't fit in memory) or very large $p$, or online/streaming settings, use gradient methods. The gradient is $\nabla \text{RSS} = 2X^\top(X\beta - y)$.</p>
+
+<ul>
+  <li><strong>Batch gradient descent:</strong> $\beta \leftarrow \beta - \eta\, X^\top(X\beta - y)$. Converges linearly; the rate depends on the condition number $\kappa(X^\top X)$ — ill-conditioned (correlated, unscaled) features converge painfully slowly, which is a practical reason to standardise features before gradient-based fitting.</li>
+  <li><strong>Stochastic gradient descent (SGD):</strong> update using one sample (or mini-batch) at a time. Cheap per step, scales to enormous data, noisy convergence. This is the exact same optimiser that trains neural networks — linear regression is the simplest place to meet it.</li>
+  <li><strong>Newton's method:</strong> since the Hessian $2X^\top X$ is constant, one Newton step lands exactly on the solution — Newton's method on a quadratic <em>is</em> the normal equations. This is a clean illustration of why Newton is "second-order": it uses curvature to jump straight to the bottom of a bowl.</li>
+</ul>
+
+<p><strong>Convergence.</strong> The objective is strongly convex whenever $X^\top X \succ 0$, guaranteeing a unique optimum and geometric convergence of gradient descent with a suitable step size $\eta < 2/\lambda_{\max}(X^\top X)$.</p>
+
+<h2 id="s10">10. Hyperparameters</h2>
+
+<p>Plain OLS has <strong>no hyperparameters</strong> — the estimator is determined once you fix the features. The knobs appear when you regularise or engineer features.</p>
+
+<p><strong>$\lambda$ (ridge/lasso regularisation strength).</strong></p>
+<ul>
+  <li><em>Mathematically:</em> the weight on the penalty $\lambda\|\beta\|^2$ (or $\|\beta\|_1$). Ridge shrinks the solution toward zero: $\hat\beta_{\text{ridge}} = (X^\top X + \lambda I)^{-1}X^\top y$.</li>
+  <li><em>Increasing $\lambda$:</em> stronger shrinkage → smaller coefficients → <strong>more bias, less variance</strong>; at $\lambda\to\infty$ all coefficients (except intercept) vanish.</li>
+  <li><em>Decreasing $\lambda$:</em> approaches OLS → <strong>less bias, more variance</strong>; at $\lambda = 0$ you recover OLS.</li>
+  <li><em>Computational cost:</em> negligible change (still one linear solve per $\lambda$); the cost is in the cross-validation search over $\lambda$.</li>
+  <li><em>Guidance:</em> choose by cross-validation over a log-spaced grid. Always standardise features first, otherwise the penalty treats a feature measured in millimetres differently from one in kilometres.</li>
+</ul>
+
+<p><strong>Choice of features / polynomial degree $d$.</strong> Effectively the model-capacity dial. Higher degree → lower bias, higher variance, and worse conditioning (powers of $x$ become collinear). Treat as a hyperparameter selected by CV.</p>
+
+<p><strong>$\ell_1$ vs $\ell_2$ (elastic-net mixing $\alpha$).</strong> Controls the <em>type</em> of regularisation: $\ell_1$ produces sparse solutions (feature selection), $\ell_2$ shrinks smoothly. Elastic net interpolates.</p>
+
+<p><strong>Learning rate $\eta$, batch size (only if using SGD).</strong> Standard SGD knobs; irrelevant if you use the closed form.</p>
+
+<h2 id="s11">11. Bias–Variance Behaviour</h2>
+
+<p>Decompose expected squared prediction error at a point:</p>
+$$ \mathbb{E}\big[(y_0 - \hat f(x_0))^2\big] = \underbrace{\big(\mathbb{E}[\hat f(x_0)] - f(x_0)\big)^2}_{\text{bias}^2} + \underbrace{\operatorname{Var}(\hat f(x_0))}_{\text{variance}} + \underbrace{\sigma^2}_{\text{irreducible}}. $$
+
+<p><strong>OLS is a low-variance/high-bias-prone member of this trade-off — but which way it leans depends on features:</strong></p>
+
+<ul>
+  <li><strong>Underfitting (high bias):</strong> the true relationship is curved but you fit a straight line, or you omit an important feature. The model <em>cannot</em> represent the truth; error persists no matter how much data you collect. Symptom: high error on both train and test.</li>
+  <li><strong>Overfitting (high variance):</strong> too many features relative to $n$ (large $p$, small $n$), or high-degree polynomials. The variance term $\sigma^2\,\text{trace}((X^\top X)^{-1})$ blows up — coefficients swing wildly with tiny data perturbations. Symptom: near-zero train error, large test error. In the extreme $p \geq n$, $X^\top X$ is singular and OLS is undefined.</li>
+  <li><strong>Regularisation</strong> deliberately injects bias (shrinks $\hat\beta$) to buy a larger reduction in variance — often lowering <em>total</em> error. This is the single most important idea in the whole bias–variance story and recurs in every model in this course.</li>
+  <li><strong>Data size:</strong> OLS variance scales like $\sigma^2/n$ per coefficient. More data shrinks variance but <em>never</em> touches bias — a misspecified linear model stays biased at $n = \infty$.</li>
+</ul>
+
+<h2 id="s12">12. Computational Complexity</h2>
+
+<p>Let $n$ = observations, $p$ = features.</p>
+
+<p><strong>Training (closed form):</strong></p>
+<ul>
+  <li>Form $X^\top X$: $O(np^2)$. Factorise/invert the $(p{+}1)\times(p{+}1)$ system: $O(p^3)$. Total $O(np^2 + p^3)$.</li>
+  <li>QR on $X$ directly: $O(np^2)$ (preferred; avoids the $p^3$ term dominating and is more stable).</li>
+  <li>When $n \gg p$ (typical), cost is $O(np^2)$ — <strong>linear in $n$</strong>, which is excellent.</li>
+</ul>
+
+<p><strong>Training (iterative):</strong> each gradient step is $O(np)$; total $O(np \cdot T)$ for $T$ iterations. SGD step is $O(p)$.</p>
+
+<p><strong>Prediction:</strong> $O(p)$ per new point — a single dot product. Extremely cheap; this is a major deployment advantage.</p>
+
+<p><strong>Memory:</strong> $O(np)$ to hold $X$, or just $O(p^2)$ if you stream and accumulate $X^\top X$ and $X^\top y$ incrementally (a nice trick for out-of-core fitting).</p>
+
+<p><strong>Scalability consequences:</strong> linear regression is one of the most scalable models. The $p^3$ term only bites when $p$ is in the thousands; the $np^2$ term dominates for wide-but-not-huge data. For truly massive $p$, switch to iterative solvers or dimensionality reduction.</p>
+
+<h2 id="s13">13. Data Preparation</h2>
+
+<p><strong>Required / strongly advised:</strong></p>
+<ul>
+  <li><strong>Encoding categoricals:</strong> one-hot encode nominal categories (drop one level to avoid perfect collinearity with the intercept — the "dummy variable trap").</li>
+  <li><strong>Handling nonlinearity:</strong> if a relationship is curved, add polynomial or spline features, or transform (e.g. log). The model is only as flexible as the features you give it.</li>
+  <li><strong>Outlier scrutiny:</strong> squared loss makes OLS acutely sensitive to outliers — one wild point can dominate the fit. Inspect, and consider robust alternatives (Huber loss, RANSAC) if outliers are genuine.</li>
+  <li><strong>Multicollinearity check:</strong> examine correlations / variance inflation factors (VIF). Highly correlated predictors destabilise coefficients.</li>
+  <li><strong>Missing values:</strong> OLS needs complete cases; impute thoughtfully or model missingness.</li>
+  <li><strong>Skewed targets/features:</strong> log-transforming a right-skewed positive target often restores homoscedasticity and linearity simultaneously.</li>
+</ul>
+
+<p><strong>Scaling / standardisation:</strong> <em>Not required for plain OLS correctness</em> — the closed-form solution is invariant to linear rescaling of features (coefficients simply rescale to compensate). <strong>But</strong> it <em>is</em> required for (a) ridge/lasso, where the penalty is scale-dependent, (b) gradient-descent fitting, where it fixes conditioning and speeds convergence, and (c) comparing coefficient magnitudes as "importances." Contrast this with SVM/KNN (<span class="plain-ref" title="coming in a later week">Lectures 3</span>, 5) where scaling changes the <em>answer</em>, not just the numerics.</p>
+
+<p><strong>Time ordering / stationarity:</strong> only relevant if data are temporal — then independence of errors is suspect and you'd move toward time-series methods (<span class="plain-ref" title="coming in a later week">Lecture 18</span>).</p>
+
+<h2 id="s14">14. Evaluation</h2>
+
+<p><strong>Regression metrics:</strong></p>
+<ul>
+  <li><strong>MAE</strong> $= \tfrac1n\sum|y_i - \hat y_i|$ — mean absolute error; robust to outliers, in the units of $y$, but not differentiable at 0.</li>
+  <li><strong>MSE</strong> $= \tfrac1n\sum(y_i - \hat y_i)^2$ — penalises large errors quadratically; the quantity OLS actually minimises; units are $y^2$.</li>
+  <li><strong>RMSE</strong> $= \sqrt{\text{MSE}}$ — back in the units of $y$; the default reporting metric.</li>
+  <li><strong>$R^2 = 1 - \text{RSS}/\text{TSS}$</strong> — fraction of variance explained. <strong>Caveat:</strong> $R^2$ <em>never decreases</em> when you add features, even useless ones, so it cannot be used to compare models of different sizes.</li>
+  <li><strong>Adjusted $R^2 = 1 - \dfrac{\text{RSS}/(n-p-1)}{\text{TSS}/(n-1)}$</strong> — penalises extra parameters, so it can go <em>down</em> if a feature doesn't earn its keep. Use this for model comparison.</li>
+</ul>
+
+<p><strong>Why metrics mislead:</strong></p>
+<ul>
+  <li>A high $R^2$ can coexist with a badly misspecified model (curved residuals) — it measures variance explained, not correctness of form.</li>
+  <li>RMSE is dominated by a few large errors; if you care about typical performance, report MAE too.</li>
+  <li>$R^2$ is meaningless out of sample if computed on the training set — always report on held-out data.</li>
+  <li>On non-stationary or extrapolated data, in-sample fit says nothing about future error.</li>
+</ul>
+
+<h2 id="s15">15. Validation Strategy</h2>
+
+<ul>
+  <li><strong>Train/test split</strong> for a quick honest estimate; fine when $n$ is large.</li>
+  <li><strong>$k$-fold cross-validation</strong> (typically $k=5$ or $10$) for reliable estimates and for tuning $\lambda$. Report mean ± SD across folds.</li>
+  <li><strong>Nested CV</strong> when you both tune hyperparameters <em>and</em> estimate generalisation — the outer loop estimates error, the inner loop tunes. Skipping nesting optimistically biases your error estimate.</li>
+  <li><strong>Grouped CV</strong> when observations cluster (e.g. multiple rows per patient) — keep whole groups together to avoid leakage.</li>
+  <li><strong>Time-series / rolling-origin validation</strong> if data are temporal — never let future leak into the training of past predictions.</li>
+</ul>
+
+<p><strong>Leakage risks specific to regression:</strong> standardising or imputing using statistics computed on the <em>whole</em> dataset before splitting leaks test information; fit all preprocessing <em>inside</em> the CV fold (use a pipeline). Feature selection done on the full data before CV is the classic silent leak that inflates reported performance.</p>
+
+<h2 id="s16">16. Diagnostics</h2>
+
+<p>The residuals are your microscope. For a well-specified model they should look like structureless noise.</p>
+
+<ul>
+  <li><strong>Residuals vs fitted:</strong> should be a flat, patternless band around zero. A curve → missing nonlinearity (violated linearity). A funnel (spreading) → heteroscedasticity.</li>
+  <li><strong>Q–Q plot of residuals:</strong> points on the diagonal → approximately normal errors (needed for valid small-sample inference). Heavy tails → outliers / non-normality.</li>
+  <li><strong>Scale–location plot:</strong> checks constant variance more directly.</li>
+  <li><strong>Leverage and Cook's distance:</strong> identify high-leverage points (extreme $x$) and influential points that individually swing the fit. High leverage = large diagonal entry $h_{ii}$ of the hat matrix.</li>
+  <li><strong>Residuals vs each predictor:</strong> localises where nonlinearity lives.</li>
+  <li><strong>Autocorrelation (Durbin–Watson, ACF of residuals):</strong> for ordered data, checks the independence assumption.</li>
+  <li><strong>VIF:</strong> flags multicollinearity ($\text{VIF}_j = 1/(1 - R_j^2)$ where $R_j^2$ regresses feature $j$ on the others; VIF > 5–10 is a warning).</li>
+  <li><strong>Learning curves:</strong> train vs validation error against $n$ — converging high errors signal bias (underfit); a persistent gap signals variance (overfit).</li>
+  <li><strong>Partial dependence / coefficient plots with CIs:</strong> communicate effect sizes and their uncertainty.</li>
+</ul>
+
+<h2 id="s17">17. Strengths</h2>
+
+<p>Each advantage traced to its mechanism:</p>
+
+<ul>
+  <li><strong>Closed-form, globally optimal solution.</strong> Convex quadratic loss → unique minimum found exactly by one linear solve. No initialisation, no local minima, fully reproducible.</li>
+  <li><strong>Interpretability.</strong> Each $\hat\beta_j$ is the estimated change in $\mathbb{E}[y]$ per unit change in $x_j$, <em>holding others fixed</em> — a directly meaningful quantity, unlike the opaque weights of most models.</li>
+  <li><strong>Rigorous uncertainty quantification.</strong> Because the estimator's sampling distribution is known in closed form ($\hat\beta \sim \mathcal{N}(\beta, \sigma^2(X^\top X)^{-1})$ under normality), we get exact standard errors, CIs, prediction intervals, and hypothesis tests — few ML models offer this.</li>
+  <li><strong>Optimality guarantee.</strong> Gauss–Markov: BLUE under mild assumptions; no linear unbiased estimator does better.</li>
+  <li><strong>Cheap and scalable.</strong> $O(np^2)$ training, $O(p)$ prediction; streams to out-of-core with constant memory.</li>
+  <li><strong>Statistical efficiency in low-data regimes.</strong> With few parameters, it needs far less data than flexible models to estimate its coefficients precisely — it's the sensible default when $n$ is small.</li>
+  <li><strong>A transparent baseline.</strong> If a complex model can't beat well-featured linear regression, that's diagnostic information about your problem.</li>
+</ul>
+
+<h2 id="s18">18. Weaknesses and Failure Modes</h2>
+
+<ul>
+  <li><strong>Bias under misspecification.</strong> If $\mathbb{E}[y\mid x]$ is nonlinear and you don't engineer features to capture it, the model is <em>systematically</em> wrong and no amount of data fixes it. <em>Example:</em> fitting a line to a clearly quadratic $y = x^2$ relationship gives residuals that curve like a smile — a dead giveaway.</li>
+  <li><strong>Outlier fragility.</strong> Squared loss weights a residual of 10 as 100× a residual of 1. <em>Example:</em> one mistyped data point (a salary of £5,000,000 instead of £50,000) can visibly tilt the entire fitted line.</li>
+  <li><strong>Multicollinearity.</strong> When predictors are highly correlated, $X^\top X$ is near-singular; $(X^\top X)^{-1}$ has huge entries, so coefficient variances explode. <em>Example:</em> including both "height in cm" and "height in inches" — coefficients become enormous, opposite-signed, and unstable, though predictions may still be fine. Regularisation or dropping a feature fixes it.</li>
+  <li><strong>Extrapolation danger.</strong> The linear form is imposed globally; predicting far outside the training range assumes the line continues, which it usually doesn't.</li>
+  <li><strong>Heteroscedasticity breaks inference.</strong> If error variance grows with $\hat y$, OLS point estimates stay unbiased but standard errors are wrong → invalid $p$-values and CIs. Fix with weighted least squares or robust (sandwich) standard errors.</li>
+  <li><strong>$p \geq n$ collapse.</strong> More features than observations makes $X^\top X$ singular — OLS is undefined. You <em>must</em> regularise (ridge always works because $X^\top X + \lambda I$ is invertible) or reduce dimensionality.</li>
+  <li><strong>Correlated errors.</strong> Time series / clustered data violate independence; naive OLS understates uncertainty.</li>
+  <li><strong>Misleading $R^2$.</strong> A high $R^2$ on training data with structured residuals falsely signals a good model.</li>
+</ul>
+
+<h2 id="s19">19. Comparison With Related Algorithms</h2>
+
+<p><strong>Linear Regression vs Ridge vs Lasso.</strong> All minimise squared error; they differ in the penalty:</p>
+
+<table>
+<thead>
+<tr><th></th><th>OLS</th><th>Ridge ($\ell_2$)</th><th>Lasso ($\ell_1$)</th></tr>
+</thead>
+<tbody>
+<tr><td>Objective</td><td>$\|y-X\beta\|^2$</td><td>$+\ \lambda\|\beta\|_2^2$</td><td>$+\ \lambda\|\beta\|_1$</td></tr>
+<tr><td>Solution</td><td>$(X^\top X)^{-1}X^\top y$</td><td>$(X^\top X+\lambda I)^{-1}X^\top y$</td><td>no closed form (coordinate descent)</td></tr>
+<tr><td>Bias/variance</td><td>unbiased, high var possible</td><td>biased, lower var</td><td>biased, lower var</td></tr>
+<tr><td>Coefficients</td><td>can be large/unstable</td><td>shrunk toward 0, none exactly 0</td><td>some exactly 0 (sparse)</td></tr>
+<tr><td>Handles $p\ge n$</td><td>no (singular)</td><td>yes</td><td>yes</td></tr>
+<tr><td>Multicollinearity</td><td>unstable</td><td>stabilised</td><td>picks one of a correlated group</td></tr>
+<tr><td>Use when</td><td>few, clean, uncorrelated features</td><td>many correlated features, all plausibly relevant</td><td>want automatic feature selection</td></tr>
+</tbody>
+</table>
+
+<p><em>Geometrically</em>, ridge's circular constraint region shrinks all coefficients smoothly; lasso's diamond-shaped region has corners on the axes, so the optimum tends to land <em>on</em> an axis (a zero coefficient) — that's why $\ell_1$ produces sparsity.</p>
+
+<p><strong>Linear vs polynomial/spline regression.</strong> Same machinery, richer features; trades bias for variance and interpretability.</p>
+
+<p><strong>Linear regression → Logistic regression (<span class="plain-ref" title="coming in a later week">Lecture 2</span>).</strong> Same linear predictor $x^\top\beta$, but wrapped in a sigmoid and fitted by maximising a Bernoulli (not Gaussian) likelihood. Linear regression is to continuous targets what logistic is to binary — both are <em>generalised linear models</em>.</p>
+
+<p><strong>Linear regression vs tree ensembles / neural nets.</strong> Trees and nets capture nonlinearities and interactions <em>automatically</em> (high capacity, low interpretability, need more data); linear regression needs you to hand-craft those, but rewards you with interpretability, uncertainty, and data efficiency. On genuinely linear, low-dimensional, small-$n$ problems, linear regression often <em>wins</em>.</p>
+
+<h2 id="s20">20. When I Should Use It</h2>
+
+<p><strong>Use linear regression when:</strong></p>
+<ul>
+  <li>The relationship is plausibly (approximately) linear, or you can engineer features to make it so.</li>
+  <li>You need <strong>interpretable coefficients</strong> or <strong>statistical inference</strong> (effect sizes, significance, CIs).</li>
+  <li>Data are <strong>limited</strong> — few parameters estimate reliably from little data.</li>
+  <li>You need a <strong>fast, cheap, reproducible baseline</strong> before reaching for anything complex.</li>
+  <li>You need <strong>calibrated uncertainty</strong> (prediction intervals) with minimal assumptions machinery.</li>
+  <li>$n \gg p$ and predictors aren't badly collinear.</li>
+</ul>
+
+<p><strong>Add ridge/lasso when:</strong> features are many and correlated, $p$ approaches or exceeds $n$, or you want automatic feature selection (lasso).</p>
+
+<p><strong>Avoid (or heavily augment) linear regression when:</strong></p>
+<ul>
+  <li>The relationship is strongly nonlinear with unknown form and you can't feature-engineer it → use trees, GBMs, or neural nets.</li>
+  <li>Important <strong>interactions</strong> exist that you can't specify by hand.</li>
+  <li>The target is bounded/categorical/count — use the appropriate GLM (logistic, Poisson).</li>
+  <li>Data are riddled with outliers → robust regression.</li>
+  <li>You care only about raw predictive accuracy on large, complex tabular data → gradient boosting usually beats it.</li>
+</ul>
+
+<h2 id="s21">21. Python Implementation From Scratch</h2>
+
 <pre><code>import numpy as np
 
-def fit_ols(X, y, fit_intercept=True):
-    X = np.asarray(X, dtype=float)
-    y = np.asarray(y, dtype=float)
+class LinearRegressionScratch:
+    """OLS via the normal equations, solved stably (no explicit inverse)."""
 
-    if fit_intercept:
-        X = np.column_stack([np.ones(len(X)), X])
+    def __init__(self, fit_intercept=True):
+        self.fit_intercept = fit_intercept
+        self.beta_ = None          # fitted coefficients (incl. intercept if used)
+        self.sigma2_ = None        # unbiased noise-variance estimate
+        self.cov_beta_ = None      # covariance matrix of the estimator
 
-    beta, residuals, rank, singular_values = np.linalg.lstsq(
-        X, y, rcond=None
-    )
-    return beta, residuals, rank, singular_values</code></pre>
-      <p><code>numpy.linalg.lstsq</code> returns a vector minimising $\|y-X\beta\|_2$. When there are several minimisers, it returns the minimum-Euclidean-norm solution.</p>
+    def _design(self, X):
+        # Prepend a column of ones so beta[0] becomes the intercept.
+        if self.fit_intercept:
+            return np.hstack([np.ones((X.shape[0], 1)), X])
+        return X
 
-      <h3>12.1 scikit-learn</h3>
-      <p>For dense data with the default <code>positive=False</code>, current scikit-learn centres $X$ and $y$ when <code>fit_intercept=True</code>, solves the centred least-squares problem through <code>scipy.linalg.lstsq</code>, and reconstructs the intercept afterwards. Sparse data use an iterative least-squares solver; <code>positive=True</code> changes the problem to non-negative least squares.</p>
-<pre><code>from sklearn.linear_model import LinearRegression
+    def fit(self, X, y):
+        Xd = self._design(np.asarray(X, float))
+        y  = np.asarray(y, float).ravel()
 
-model = LinearRegression()
-model.fit(X, y)
+        # Normal equations: (Xᵀ X) beta = Xᵀ y.
+        # np.linalg.lstsq solves this in a least-squares, numerically stable way
+        # (uses SVD internally), and works even if XᵀX is near-singular.
+        self.beta_, *_ = np.linalg.lstsq(Xd, y, rcond=None)
 
-print(model.intercept_)
-print(model.coef_)
-print(model.rank_)
-print(model.singular_)</code></pre>
-      <p>The conceptual distinction is important: <strong>OLS defines the estimator; QR, SVD, LAPACK routines and iterative solvers are numerical routes to it.</strong></p>
-    </section>
+        # Residuals and unbiased variance estimate: RSS / (n - #params).
+        resid = y - Xd @ self.beta_
+        n, k = Xd.shape
+        self.sigma2_ = resid @ resid / (n - k)
 
-    <section id="assumptions">
-      <h2>13. Which assumptions support which claims?</h2>
-      <p>Different statements about linear regression require different assumptions. Keeping them separate avoids much confusion.</p>
-      <table>
-        <thead><tr><th>Claim</th><th>What is needed</th></tr></thead>
-        <tbody>
-          <tr><td>OLS coefficients minimise RSS</td><td>No probabilistic assumption. This follows from the optimisation problem.</td></tr>
-          <tr><td>The minimiser is unique</td><td>Full column rank of $X$.</td></tr>
-          <tr><td>$\mathbb E[\hat\beta\mid X]=\beta$</td><td>Correct linear conditional mean and $\mathbb E[\varepsilon\mid X]=0$.</td></tr>
-          <tr><td>$\operatorname{Var}(\hat\beta\mid X)=\sigma^2(X^\top X)^{-1}$</td><td>Zero conditional mean plus homoscedastic, uncorrelated errors.</td></tr>
-          <tr><td>Gauss–Markov BLUE result</td><td>Linearity, full rank, zero conditional mean and spherical error covariance $\sigma^2I$.</td></tr>
-          <tr><td>Exact finite-sample $t$ and $F$ distributions</td><td>The classical assumptions plus Gaussian errors.</td></tr>
-        </tbody>
-      </table>
-      <p>For prediction, the relevant empirical question is usually out-of-sample error. For coefficient interpretation and uncertainty, the assumptions about the data-generating process and the error structure matter directly.</p>
-    </section>
+        # Cov(beta) = sigma^2 (XᵀX)^{-1}; gives standard errors on the diagonal.
+        XtX_inv = np.linalg.inv(Xd.T @ Xd)
+        self.cov_beta_ = self.sigma2_ * XtX_inv
+        return self
 
-    <section id="ridge">
-      <h2>14. Ridge regression as a natural extension</h2>
-      <p>The instability of OLS under near-collinearity suggests adding curvature in directions where $X^\top X$ is weak. Ridge regression solves</p>
-      $$
-      \hat\beta_\lambda
-      =\arg\min_\beta\left\{\|y-X\beta\|_2^2+\lambda\|\beta\|_2^2\right\}.
-      $$
-      Differentiating gives</p>
-      $$
-      -2X^\top y+2X^\top X\beta+2\lambda\beta=0,
-      $$
-      hence
-      <div class="equation-box">$$\hat\beta_\lambda=(X^\top X+\lambda I)^{-1}X^\top y.$$</div>
-      <p>If $X^\top X=V\Lambda V^\top$, then</p>
-      $$X^\top X+\lambda I=V(\Lambda+\lambda I)V^\top.$$
-      <p>Every eigenvalue is shifted upward by $\lambda$. Directions associated with very small eigenvalues are therefore stabilised. Statistically, this reduces variance by accepting some bias.</p>
-      <p class="small">In models with an intercept, the intercept is normally excluded from the penalty.</p>
-    </section>
+    def predict(self, X):
+        return self._design(np.asarray(X, float)) @ self.beta_
 
-    <section id="summary">
-      <h2>15. Under the hood</h2>
-      <ul class="takeaways">
-        <li><code>fit()</code> solves a convex least-squares problem: $\min_\beta\|y-X\beta\|_2^2$.</li>
-        <li>Gaussian errors make the same estimator the maximum-likelihood solution.</li>
-        <li>The normal equations arise from setting the gradient to zero; the Hessian explains convexity and uniqueness.</li>
-        <li>$\hat y=Hy$ is an orthogonal projection and $H$ is symmetric and idempotent.</li>
-        <li>$\hat\beta$ is unbiased under zero conditional mean, with covariance $\sigma^2(X^\top X)^{-1}$ under spherical errors.</li>
-        <li>Gauss–Markov follows by comparing any linear unbiased estimator with OLS and obtaining a positive-semidefinite covariance difference.</li>
-        <li>The textbook inverse is a theoretical identity. QR and SVD solve the numerical problem more sensibly.</li>
-        <li>Conditioning links numerical instability, multicollinearity and coefficient variance.</li>
-        <li>Gradient descent exposes the optimisation geometry; Newton's method reaches the OLS solution in one step because the objective is quadratic.</li>
-        <li>Ridge modifies the same linear algebra by shifting the eigenvalues of $X^\top X$.</li>
-      </ul>
-      <p>The single call <code>LinearRegression().fit(X, y)</code> therefore hides a substantial chain of applied mathematics: probability, optimisation, geometry, matrix factorisation and statistical inference all meet in one of the simplest models in machine learning.</p>
-    </section>
+    def standard_errors(self):
+        return np.sqrt(np.diag(self.cov_beta_))
 
-    <section class="refs">
-      <h2>References and implementation notes</h2>
-      <ul>
-        <li><a href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html">scikit-learn: <code>LinearRegression</code></a>.</li>
-        <li><a href="https://numpy.org/doc/stable/reference/generated/numpy.linalg.lstsq.html">NumPy: <code>numpy.linalg.lstsq</code></a>.</li>
-        <li><a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.linalg.lstsq.html">SciPy: <code>scipy.linalg.lstsq</code></a>.</li>
-        <li>Golub, G. H. &amp; Van Loan, C. F. <em>Matrix Computations</em>, 4th ed., Johns Hopkins University Press, 2013.</li>
-        <li>Hastie, T., Tibshirani, R. &amp; Friedman, J. <em>The Elements of Statistical Learning</em>, 2nd ed., Springer, 2009.</li>
-        <li>Seber, G. A. F. &amp; Lee, A. J. <em>Linear Regression Analysis</em>, 2nd ed., Wiley, 2003.</li>
-      </ul>
-    </section>
+# --- demo on the hand-worked example -------------------------------
+X = np.array([[1], [2], [3]], float)
+y = np.array([2, 2, 4], float)
 
-    <footer>
-      <p><strong>What's Under the Hood?</strong> — the mathematics, optimisation and numerical methods behind machine-learning algorithms.</p>
-      <p><a href="../">Series index</a> · <a href="https://github.com/drmshoaib/whats-under-the-hood">GitHub repository</a></p>
-    </footer>
-  </main>
+model = LinearRegressionScratch().fit(X, y)
+print("beta  :", model.beta_)          # ~ [0.6667, 1.0]  (intercept, slope)
+print("sigma2:", model.sigma2_)        # ~ 0.6667
+print("SEs   :", model.standard_errors())
+print("pred @ x=4:", model.predict([[4]]))  # 0.6667 + 4 = 4.6667</code></pre>
+
+<p><strong>Line-by-line correspondence to the maths.</strong></p>
+<ul>
+  <li><code>_design</code> builds the augmented matrix $X$ from §3 — the ones-column <em>is</em> the intercept term $\beta_0$.</li>
+  <li><code>np.linalg.lstsq(Xd, y)</code> solves the normal equations $X^\top X\hat\beta = X^\top y$ (§4.1) via SVD, the stable route from §5 (better than forming and inverting $X^\top X$).</li>
+  <li><code>resid @ resid / (n - k)</code> is $\hat\sigma^2 = \text{RSS}/(n-p-1)$ (§4.4) — note the degrees-of-freedom denominator.</li>
+  <li><code>self.sigma2_ * XtX_inv</code> is $\operatorname{Var}(\hat\beta) = \sigma^2(X^\top X)^{-1}$ (§4.3); its diagonal square-roots are the standard errors of §8.</li>
+</ul>
+
+<p><em>(Optional gradient-descent version, to expose the optimiser used later in the course:)</em></p>
+
+<pre><code>def fit_gd(X, y, eta=0.01, iters=5000):
+    Xd = np.hstack([np.ones((len(X), 1)), X])
+    beta = np.zeros(Xd.shape[1])
+    n = len(y)
+    for _ in range(iters):
+        grad = (2/n) * Xd.T @ (Xd @ beta - y)   # ∇RSS = 2Xᵀ(Xβ − y)
+        beta -= eta * grad                       # descend the convex bowl
+    return beta</code></pre>
+
+<h2 id="s22">22. Production Python Implementation</h2>
+
+<pre><code>import numpy as np
+import pandas as pd
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.linear_model import LinearRegression, RidgeCV
+from sklearn.model_selection import cross_val_score, KFold
+from sklearn.metrics import mean_squared_error, r2_score
+import statsmodels.api as sm
+
+# ---- 1. sklearn: prediction-focused, with a leak-free pipeline ----
+# Suppose df has numeric + categorical predictors and a target column.
+num_features = ["area", "rooms", "age"]
+cat_features = ["neighbourhood"]
+
+preprocess = ColumnTransformer([
+    ("num", StandardScaler(), num_features),                 # scale numerics
+    ("cat", OneHotEncoder(drop="first", handle_unknown="ignore"), cat_features),
+])
+
+# RidgeCV picks lambda (alpha) by internal cross-validation — robust default.
+model = Pipeline([
+    ("prep", preprocess),
+    ("reg",  RidgeCV(alphas=np.logspace(-3, 3, 25))),
+])
+
+# Honest generalisation estimate: preprocessing is refit inside each fold,
+# so no test statistics leak into training.
+cv = KFold(n_splits=5, shuffle=True, random_state=0)
+neg_mse = cross_val_score(model, df[num_features + cat_features], df["price"],
+                          scoring="neg_root_mean_squared_error", cv=cv)
+print("CV RMSE:", -neg_mse.mean(), "±", neg_mse.std())
+
+model.fit(df[num_features + cat_features], df["price"])
+print("chosen alpha (lambda):", model.named_steps["reg"].alpha_)
+
+# ---- 2. statsmodels: inference-focused (SEs, p-values, CIs, diagnostics) ----
+X_sm = sm.add_constant(df[num_features])       # explicit intercept column
+ols  = sm.OLS(df["price"], X_sm).fit()
+print(ols.summary())                           # coeffs, SEs, t, p, R², adj-R², F
+print(ols.conf_int())                          # confidence intervals for beta
+# Robust (heteroscedasticity-consistent) standard errors when variance isn't constant:
+ols_robust = sm.OLS(df["price"], X_sm).fit(cov_type="HC3")</code></pre>
+
+<p><strong>When to use which:</strong> reach for <strong>scikit-learn</strong> when the goal is prediction, pipelines, cross-validation, and deployment; reach for <strong>statsmodels</strong> when the goal is inference — you want the coefficient table with standard errors, $t$-statistics, $p$-values, $R^2$/adjusted $R^2$, the $F$-test, and residual diagnostics.</p>
+
+<h2 id="s23">23. Library Parameters Mapped to Mathematics</h2>
+
+<p><strong><code>sklearn.linear_model.LinearRegression</code></strong></p>
+<ul>
+  <li><code>fit_intercept</code> — whether to include $\beta_0$, i.e. prepend the ones-column. If your data is already centered, <code>False</code> skips it. Mathematically toggles whether the column space includes the constant direction.</li>
+  <li><code>positive</code> — constrains $\hat\beta \ge 0$. This turns the unconstrained normal-equations solve into a <em>constrained</em> quadratic program (no longer closed-form). Use only when negativity is physically meaningless.</li>
+</ul>
+
+<p><strong><code>sklearn.linear_model.Ridge</code> / <code>RidgeCV</code></strong></p>
+<ul>
+  <li><code>alpha</code> (this is $\lambda$) — the coefficient on the $\ell_2$ penalty in $\|y-X\beta\|^2 + \alpha\|\beta\|^2$. Increasing it strengthens the diagonal loading in $(X^\top X + \alpha I)^{-1}$: coefficients shrink toward zero, <em>variance falls, bias rises</em> (§10, §11). <code>alpha=0</code> recovers OLS. <code>RidgeCV(alphas=...)</code> searches this grid by CV.</li>
+  <li><code>solver</code> — <code>'cholesky'</code> solves the normal equations directly (fast, needs well-conditioned $X^\top X + \alpha I$); <code>'svd'</code> is most stable; <code>'sag'/'saga'</code> are stochastic solvers for large $n$. These are <em>numerical</em> choices; they compute the <em>same</em> estimator (§5).</li>
+</ul>
+
+<p><strong><code>sklearn.linear_model.Lasso</code> / <code>ElasticNet</code></strong></p>
+<ul>
+  <li><code>alpha</code> — the $\ell_1$ (or combined) penalty strength; larger → more coefficients driven <em>exactly</em> to zero (sparsity from the diamond geometry, §19).</li>
+  <li><code>l1_ratio</code> (elastic net) — mixes $\ell_1$ and $\ell_2$: <code>1.0</code> = pure lasso, <code>0.0</code> = pure ridge. Controls the <em>shape</em> of the constraint region, hence whether shrinkage is sparse or smooth.</li>
+  <li><code>max_iter</code>, <code>tol</code> — because lasso has no closed form, these govern the coordinate-descent optimiser's iterations and convergence tolerance.</li>
+</ul>
+
+<p><strong><code>statsmodels.OLS(...).fit(cov_type=...)</code></strong></p>
+<ul>
+  <li><code>cov_type='HC0'…'HC3'</code> — swaps the naive covariance $\hat\sigma^2(X^\top X)^{-1}$ for a heteroscedasticity-robust (sandwich) estimator. Doesn't change $\hat\beta$; changes the <em>standard errors</em> so inference stays valid when homoscedasticity fails (§18).</li>
+</ul>
+
+<h2 id="s24">24. Common Interview Questions</h2>
+
+<p><strong>1. Derive the OLS estimator and state when it's unique.</strong><br>
+Minimise $\|y-X\beta\|^2$; gradient $-2X^\top(y-X\beta)=0$ gives the normal equations $X^\top X\hat\beta=X^\top y$, so $\hat\beta=(X^\top X)^{-1}X^\top y$. Unique iff $X$ has full column rank (equivalently $X^\top X$ invertible); otherwise infinitely many minimisers (the min-norm one is $X^+y$ via the pseudoinverse).</p>
+
+<p><strong>2. "Linear regression assumes a linear relationship between $x$ and $y$" — precisely wrong how?</strong><br>
+It assumes linearity in the <strong>parameters</strong>, not the inputs. $y=\beta_0+\beta_1 x+\beta_2 x^2+\varepsilon$ is a linear model. You can fit any curve as long as it's a linear combination of (possibly nonlinear) features.</p>
+
+<p><strong>3. Why divide RSS by $n-p-1$, not $n$, to estimate $\sigma^2$?</strong><br>
+The residuals satisfy $p+1$ linear constraints ($X^\top\hat\varepsilon=0$), so they live in an $(n-p-1)$-dimensional space; $\mathbb{E}[\text{RSS}]=(n-p-1)\sigma^2$. Dividing by $n$ gives a biased (too small) estimate.</p>
+
+<p><strong>4. What does Gauss–Markov actually guarantee, and what does it <em>not</em>?</strong><br>
+Guarantees OLS is minimum-variance among <em>linear unbiased</em> estimators, under zero-mean, homoscedastic, uncorrelated errors — <em>no normality required</em>. It does <strong>not</strong> say OLS beats <em>biased</em> estimators (ridge often has lower MSE), nor does it justify $t$-tests/CIs (those need normality or large samples).</p>
+
+<p><strong>5. Explain the difference between a confidence interval and a prediction interval.</strong><br>
+CI is for the mean response $x_\ast^\top\beta$: variance $\sigma^2 x_\ast^\top(X^\top X)^{-1}x_\ast$. PI is for a <em>new</em> observation $y_\ast$: adds irreducible noise, variance $\sigma^2(1+x_\ast^\top(X^\top X)^{-1}x_\ast)$ — always wider.</p>
+
+<p><strong>6. Multicollinearity: does it bias coefficients, hurt predictions, or something else?</strong><br>
+It does <strong>not</strong> bias coefficients and often doesn't hurt <em>prediction</em>. It inflates coefficient <strong>variance</strong> (near-singular $X^\top X$), making estimates unstable and inference unreliable. Fix: drop/combine features, or regularise.</p>
+
+<p><strong>7. Show that maximising the Gaussian likelihood equals minimising RSS.</strong><br>
+$\log p(y\mid\beta)= \text{const} - \frac{1}{2\sigma^2}\text{RSS}(\beta)$. The only $\beta$-dependence is $-\text{RSS}/(2\sigma^2)$, so $\arg\max_\beta \ell = \arg\min_\beta \text{RSS}$.</p>
+
+<p><strong>8. Your $R^2$ is 0.95 on train but the model is useless out of sample — how?</strong><br>
+Overfitting (too many features / high-degree polynomial, small $n$), leakage, or in-sample $R^2$ measured on training data. $R^2$ always rises with more features; use adjusted $R^2$ and, above all, held-out/CV error.</p>
+
+<p><strong>9. When does OLS fail entirely, and what do you do?</strong><br>
+When $p\ge n$ or features are perfectly collinear, $X^\top X$ is singular → no unique inverse. Use ridge (always invertible: $X^\top X+\lambda I$), the pseudoinverse (min-norm solution), or reduce dimensionality (PCA, feature selection).</p>
+
+<p><strong>10. Why is ridge sometimes <em>better</em> than the "optimal" OLS?</strong><br>
+Gauss–Markov only optimises within unbiased estimators. Ridge accepts bias to slash variance; when variance dominates the error (correlated/many features), the biased ridge estimate has lower total MSE. This is the bias–variance trade-off made concrete.</p>
+
+<p><strong>11. (Debugging) Your gradient descent for linear regression diverges. Likely causes?</strong><br>
+Learning rate too large (need $\eta < 2/\lambda_{\max}(X^\top X)$), or unscaled features making $X^\top X$ badly conditioned so a single $\eta$ can't suit all directions. Standardise features and reduce $\eta$.</p>
+
+<p><strong>12. How would you make linear regression robust to outliers?</strong><br>
+Replace squared loss with Huber loss (quadratic near zero, linear in the tails), use RANSAC, or quantile/least-absolute-deviations regression. Squared loss's quadratic penalty is what makes plain OLS fragile.</p>
+
+<h2 id="s25">25. Common Misconceptions</h2>
+
+<ol>
+  <li><strong>"Linear regression can only fit straight lines."</strong> It fits any function linear in the parameters — polynomials, splines, interactions, log terms. The <em>features</em> can be arbitrarily nonlinear transforms of the raw inputs.</li>
+  <li><strong>"You must standardise features for OLS."</strong> Not for the plain closed-form solution — it's invariant to feature rescaling. Standardisation matters for <em>regularised</em> regression, <em>gradient-based</em> fitting, and <em>comparing</em> coefficient magnitudes, not for OLS correctness.</li>
+  <li><strong>"A high $R^2$ means a good model."</strong> $R^2$ measures variance explained in-sample and never decreases with added features. It says nothing about correct functional form, out-of-sample accuracy, or valid inference. Curved residuals with high $R^2$ are common.</li>
+  <li><strong>"Insignificant $p$-value / small coefficient means the feature is unimportant."</strong> Multicollinearity can inflate SEs and shrink individual significance even when the feature matters; scale affects raw coefficient size. Significance is about <em>estimation precision</em>, not importance.</li>
+  <li><strong>"OLS gives the true causal effect of $x_j$."</strong> OLS estimates a conditional-mean association. Causal interpretation requires exogeneity/no confounding — an assumption about the world, not something the regression can supply. Omitted-variable bias silently corrupts the coefficients.</li>
+  <li><strong>"Confidence and prediction intervals are the same thing."</strong> The CI covers the <em>mean</em> response; the PI covers an <em>individual</em> future observation and is strictly wider because it includes irreducible noise.</li>
+</ol>
+
+<h2 id="s26">26. Exercises</h2>
+
+<h3>Level 1 — Conceptual</h3>
+<ol>
+  <li>Explain in one sentence each why the residual vector is orthogonal to every column of the design matrix, and what this has to do with the normal equations.</li>
+  <li>Give a concrete example of a relationship that is nonlinear in $x$ but can still be fitted by linear regression, and one that genuinely cannot.</li>
+  <li>State the Gauss–Markov theorem in your own words and identify precisely which assumption is <em>not</em> required.</li>
+  <li>Explain why adding an irrelevant feature can never decrease $R^2$ but can decrease adjusted $R^2$.</li>
+  <li>Describe a real situation where you would prefer MAE over RMSE for reporting, and why.</li>
+</ol>
+
+<h3>Level 2 — Mathematical</h3>
+<ol>
+  <li>Starting from $\text{RSS}(\beta)=(y-X\beta)^\top(y-X\beta)$, derive the gradient and Hessian, and prove the solution is a global minimum when $X$ has full column rank.</li>
+  <li>Show that the hat matrix $H=X(X^\top X)^{-1}X^\top$ is symmetric and idempotent, and prove $\operatorname{trace}(H)=p+1$.</li>
+  <li>Derive $\operatorname{Var}(\hat\beta\mid X)=\sigma^2(X^\top X)^{-1}$ from $\hat\beta=\beta+(X^\top X)^{-1}X^\top\varepsilon$.</li>
+  <li>For the ridge estimator $\hat\beta_\lambda=(X^\top X+\lambda I)^{-1}X^\top y$, show that as $\lambda\to\infty$ the coefficients $\to 0$, and compute $\operatorname{Var}(\hat\beta_\lambda)$; argue why it is smaller than the OLS variance.</li>
+  <li>Given the data $(0,1),(1,3),(2,3),(3,5)$, compute $\hat\beta_0,\hat\beta_1$, the residuals, RSS, and $R^2$ by hand.</li>
+</ol>
+
+<h3>Level 3 — Applied</h3>
+<ol>
+  <li>Implement OLS from scratch using QR decomposition (not the normal equations) and verify it matches scikit-learn on a dataset with correlated features.</li>
+  <li>On a dataset of your choice, fit OLS and produce all four core diagnostic plots (residuals vs fitted, Q–Q, scale–location, leverage). Diagnose any assumption violations.</li>
+  <li>Compare OLS, ridge, and lasso via 5-fold CV on a high-dimensional dataset ($p$ close to $n$); plot test RMSE against $\lambda$ and discuss the bias–variance story.</li>
+  <li>Deliberately inject a single extreme outlier into a clean dataset and quantify how much the OLS slope moves; then refit with Huber loss and compare.</li>
+  <li>Build a leak-free <code>Pipeline</code> that standardises numerics and one-hot-encodes categoricals inside cross-validation, and demonstrate (by intentionally leaking) how much CV error is optimistically biased when preprocessing is done before splitting.</li>
+</ol>
+
+<h2 id="s26s">26(s). Solutions</h2>
+
+<h3>Level 1</h3>
+<ol>
+  <li>Orthogonality: at the minimum the gradient $-2X^\top(y-X\hat\beta)=0$, i.e. $X^\top\hat\varepsilon=0$ — each column of $X$ dotted with the residual is zero, which <em>is</em> the normal equations. Geometrically, $\hat y$ is the projection of $y$, so the residual is perpendicular to the column space.</li>
+  <li>Fittable-nonlinear: $y=\beta_0+\beta_1 x+\beta_2 x^2$ (linear in $\beta$). Not fittable directly: $y=\beta_0 e^{\beta_1 x}$ (nonlinear in $\beta$ — needs nonlinear least squares, or linearise via logs if the noise structure allows).</li>
+  <li>OLS has the smallest variance of all linear unbiased estimators when errors have mean zero, constant variance, and are uncorrelated. <strong>Normality is not required.</strong></li>
+  <li>$R^2=1-\text{RSS}/\text{TSS}$; adding a feature can only shrink RSS (the old fit is still available), so $R^2$ can't fall. Adjusted $R^2$ divides RSS by $n-p-1$, which <em>shrinks</em> as $p$ grows, penalising useless features.</li>
+  <li>When the loss you care about is proportional to absolute error and outliers shouldn't dominate — e.g. forecasting delivery times where being 60 min late is twice as bad as 30 min, not four times. RMSE would over-weight rare huge errors.</li>
+</ol>
+
+<h3>Level 2</h3>
+<ol>
+  <li>$\nabla=-2X^\top y+2X^\top X\beta$; Hessian $=2X^\top X\succeq 0$, and $\succ0$ under full rank, so RSS is strictly convex → the stationary point is the unique global minimum.</li>
+  <li>Symmetry: $H^\top = X((X^\top X)^{-1})^\top X^\top = H$ (since $X^\top X$ symmetric). Idempotent: $H^2=X(X^\top X)^{-1}(X^\top X)(X^\top X)^{-1}X^\top=X(X^\top X)^{-1}X^\top=H$. Trace: $\operatorname{tr}(X(X^\top X)^{-1}X^\top)=\operatorname{tr}((X^\top X)^{-1}X^\top X)=\operatorname{tr}(I_{p+1})=p+1$ (cyclic property).</li>
+  <li>$\operatorname{Var}(\hat\beta)=\operatorname{Var}((X^\top X)^{-1}X^\top\varepsilon)=(X^\top X)^{-1}X^\top(\sigma^2 I)X(X^\top X)^{-1}=\sigma^2(X^\top X)^{-1}$ (the outer $(X^\top X)^{-1}X^\top X(X^\top X)^{-1}$ collapses).</li>
+  <li>As $\lambda\to\infty$, $(X^\top X+\lambda I)^{-1}\to\frac1\lambda I\to 0$, so $\hat\beta_\lambda\to0$. Variance: $\sigma^2 (X^\top X+\lambda I)^{-1}X^\top X (X^\top X+\lambda I)^{-1}$; the extra $+\lambda I$ enlarges the inverted matrix's eigenvalue denominators, shrinking every variance term below the OLS value $\sigma^2(X^\top X)^{-1}$.</li>
+  <li>Means: $\bar x=1.5,\bar y=3$. $S_{xx}=\sum(x-\bar x)^2=2.25+0.25+0.25+2.25=5$; $S_{xy}=\sum(x-\bar x)(y-\bar y)=(-1.5)(-2)+(-0.5)(0)+(0.5)(0)+(1.5)(2)=3+0+0+3=6$. Slope $\hat\beta_1=S_{xy}/S_{xx}=6/5=1.2$; intercept $\hat\beta_0=\bar y-\hat\beta_1\bar x=3-1.8=1.2$. Fitted: $1.2,2.4,3.6,4.8$; residuals: $-0.2,0.6,-0.6,0.2$; RSS $=0.04+0.36+0.36+0.04=0.8$. TSS $=4+0+0+4=8$; $R^2=1-0.8/8=0.9$.</li>
+</ol>
+
+<h3>Level 3</h3>
+<ol>
+  <li><code>Q,R = np.linalg.qr(Xd); beta = np.linalg.solve(R, Q.T @ y)</code>. Matches <code>LinearRegression</code> to floating-point tolerance; QR stays stable where forming $X^\top X$ would lose precision on correlated columns.</li>
+  <li>Expect residuals-vs-fitted curvature if a nonlinear term is missing; funnel shape signals heteroscedasticity; Q–Q tail departures signal outliers/non-normality; leverage plot flags influential points via Cook's distance.</li>
+  <li>Typical result: OLS has lowest bias but highest CV RMSE when $p\approx n$; ridge/lasso trace a U-shaped CV-RMSE-vs-$\lambda$ curve with a minimum at intermediate $\lambda$ — the bias–variance sweet spot; lasso additionally zeroes out weak features.</li>
+  <li>A single outlier at high leverage can shift the slope substantially (often tens of percent); Huber refit barely moves because large residuals are penalised only linearly.</li>
+  <li>Leaking (scaling on full data before split) typically yields a modestly <em>optimistic</em> CV RMSE; the correct in-fold pipeline gives a higher, honest estimate — demonstrating why preprocessing must live inside the CV loop.</li>
+</ol>
+
+<h2 id="s27">27. Summary Cheat Sheet — Linear Regression</h2>
+
+<table>
+<thead>
+<tr><th>Attribute</th><th>Summary</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Problem type</strong></td><td>Supervised regression (continuous target)</td></tr>
+<tr><td><strong>Model equation</strong></td><td>$\hat y = X\beta$, with $y = X\beta + \varepsilon$</td></tr>
+<tr><td><strong>Loss / objective</strong></td><td>RSS $= \|y - X\beta\|_2^2$ (= Gaussian MLE)</td></tr>
+<tr><td><strong>Closed-form solution</strong></td><td>$\hat\beta = (X^\top X)^{-1}X^\top y$ (solve, don't invert)</td></tr>
+<tr><td><strong>Key assumptions</strong></td><td>Linearity in params, full rank, $\mathbb{E}[\varepsilon\mid X]=0$, homoscedastic, uncorrelated errors; normality only for exact inference</td></tr>
+<tr><td><strong>Main guarantee</strong></td><td>Gauss–Markov: OLS is BLUE</td></tr>
+<tr><td><strong>Important hyperparameters</strong></td><td>None for OLS; $\lambda$ (ridge/lasso), $\ell_1$ vs $\ell_2$, feature degree</td></tr>
+<tr><td><strong>Scaling required?</strong></td><td>No for OLS correctness; <strong>yes</strong> for ridge/lasso and gradient descent</td></tr>
+<tr><td><strong>Handles nonlinearities?</strong></td><td>Only via engineered features (linear <em>in parameters</em>)</td></tr>
+<tr><td><strong>Handles categoricals?</strong></td><td>Via one-hot encoding (drop one level)</td></tr>
+<tr><td><strong>Interpretable?</strong></td><td>Highly — coefficients = per-unit effect on $\mathbb{E}[y]$; full inference available</td></tr>
+<tr><td><strong>Training cost</strong></td><td>$O(np^2 + p^3)$; effectively $O(np^2)$ when $n\gg p$</td></tr>
+<tr><td><strong>Prediction cost</strong></td><td>$O(p)$ per point</td></tr>
+<tr><td><strong>Main advantages</strong></td><td>Exact optimum, interpretable, uncertainty quantification, cheap, data-efficient</td></tr>
+<tr><td><strong>Major weaknesses</strong></td><td>Biased under misspecification, outlier-sensitive, multicollinearity instability, fails when $p\ge n$, poor extrapolation</td></tr>
+<tr><td><strong>Ideal use cases</strong></td><td>Approximately linear problems, small/medium data, need for interpretation or inference, strong baseline</td></tr>
+</tbody>
+</table>
+
+<p><strong>Connections to carry forward:</strong> the linear predictor $x^\top\beta$, the least-squares/MLE equivalence, the projection geometry, and the bias–variance trade-off introduced here reappear throughout the course — in <strong>logistic regression</strong> (swap Gaussian for Bernoulli likelihood, <span class="plain-ref" title="coming in a later week">Lecture 2</span>), in <strong>ridge/lasso</strong> (regularisation as the universal complexity control), in <strong>neural networks</strong> (stacked linear-plus-nonlinearity layers trained by the same SGD, <span class="plain-ref" title="coming in a later week">Lecture 19</span>), and in <strong>Gaussian processes</strong> (Bayesian linear regression in an infinite feature space, <span class="plain-ref" title="coming in a later week">Lecture 22</span>).</p>
+</main>
 </div>
 </body>
 </html>
