@@ -29,7 +29,7 @@ Lectures are released one at a time alongside the LinkedIn newsletter.
 
 | # | Topic | Central question | Lecture |
 |---:|---|---|---|
-| 01 | Linear Regression | What does `fit()` actually solve? | [Read lecture](01-linear-regression/) |
+| 01 | Linear Regression | What does `fit()` actually solve? | [Read lecture](https://drmshoaib.github.io/whats-under-the-hood/01-linear-regression/) |
 
 ## Repository structure
 
