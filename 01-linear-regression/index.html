@@ -232,6 +232,10 @@ window.MathJax = {
     mjx-container:not([display="true"])::-webkit-scrollbar { display:none; }
   }
 
+  /* --- public site theme: always light, matching the landing page palette --- */
+  html:root { color-scheme: light;
+    --bg:#ffffff; --fg:#0d1b2a; --muted:#52606d; --accent:#0a5f9e; --accent-light:#0b8fd8;
+    --border:#d9e2ec; --code-bg:#f7fafc; --table-stripe:#f7fafc; --box-bg:#eef6fc; --box-border:#c6dcec; }
   /* --- series branding (release build) --- */
   .sb-series { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--fg);
     font-weight:700; font-size:0.95rem; margin-bottom:14px; }
