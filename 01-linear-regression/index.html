@@ -288,7 +288,7 @@ window.MathJax = {
     <li><a href="#s27">Summary Cheat Sheet</a></li>
   </ol>
 </nav>
-<div class="sb-nav"><span class="sb-soon"><span class="lbl">Next &rarr;</span>Logistic Regression &middot; coming next week</span></div>
+<div class="sb-nav"><a href="../02-logistic-regression/"><span class="lbl">Next &rarr;</span>Logistic Regression</a></div>
 </aside>
 <main class="content">
 <header class="title">
@@ -322,7 +322,7 @@ $$ f(x) = \beta_0 + \beta_1 x_1 + \cdots + \beta_p x_p. $$
 <p><strong>Where it sits.</strong> Linear regression is <strong>supervised</strong> (we have labelled targets $y$), <strong>parametric</strong> (a fixed, finite set of parameters $\beta$), and used for <strong>regression</strong> (continuous $y$). It is the archetypal <em>low-variance, potentially-high-bias</em> model. In the landscape of the course it is the root of a family tree:</p>
 
 <ul>
-  <li>Replace the identity link with a sigmoid → <strong>logistic regression</strong> (<span class="plain-ref" title="Lecture 2 is released in Week 2">coming in Week 2</span>).</li>
+  <li>Replace the identity link with a sigmoid → <strong>logistic regression</strong> (<a href="../02-logistic-regression/">Lecture 2</a>).</li>
   <li>Add an $\ell_2$ penalty → <strong>ridge</strong>; an $\ell_1$ penalty → <strong>lasso</strong>.</li>
   <li>Stack many of these with nonlinear activations → <strong>neural networks</strong> (<span class="plain-ref" title="Lecture 19 is released in Week 23">coming in Week 23</span>).</li>
   <li>Put a Gaussian prior on $\beta$ and integrate it out → <strong>Bayesian linear regression</strong>, whose kernelised limit is a <strong>Gaussian process</strong> (<span class="plain-ref" title="Lecture 17 is released in Week 17">coming in Week 17</span>).</li>
@@ -769,7 +769,7 @@ $$ \mathbb{E}\big[(y_0 - \hat f(x_0))^2\big] = \underbrace{\big(\mathbb{E}[\hat 
 
 <p><strong>Linear vs polynomial/spline regression.</strong> Same machinery, richer features; trades bias for variance and interpretability.</p>
 
-<p><strong>Linear regression → Logistic regression (<span class="plain-ref" title="Lecture 2 is released in Week 2">coming in Week 2</span>).</strong> Same linear predictor $x^\top\beta$, but wrapped in a sigmoid and fitted by maximising a Bernoulli (not Gaussian) likelihood. Linear regression is to continuous targets what logistic is to binary — both are <em>generalised linear models</em>.</p>
+<p><strong>Linear regression → Logistic regression (<a href="../02-logistic-regression/">Lecture 2</a>).</strong> Same linear predictor $x^\top\beta$, but wrapped in a sigmoid and fitted by maximising a Bernoulli (not Gaussian) likelihood. Linear regression is to continuous targets what logistic is to binary — both are <em>generalised linear models</em>.</p>
 
 <p><strong>Linear regression vs tree ensembles / neural nets.</strong> Trees and nets capture nonlinearities and interactions <em>automatically</em> (high capacity, low interpretability, need more data); linear regression needs you to hand-craft those, but rewards you with interpretability, uncertainty, and data efficiency. On genuinely linear, low-dimensional, small-$n$ problems, linear regression often <em>wins</em>.</p>
 
@@ -1076,7 +1076,7 @@ Replace squared loss with Huber loss (quadratic near zero, linear in the tails),
 </tbody>
 </table>
 
-<p><strong>Connections to carry forward:</strong> the linear predictor $x^\top\beta$, the least-squares/MLE equivalence, the projection geometry, and the bias–variance trade-off introduced here reappear throughout the course — in <strong>logistic regression</strong> (swap Gaussian for Bernoulli likelihood, <span class="plain-ref" title="Lecture 2 is released in Week 2">coming in Week 2</span>), in <strong>ridge/lasso</strong> (regularisation as the universal complexity control), in <strong>neural networks</strong> (stacked linear-plus-nonlinearity layers trained by the same SGD, <span class="plain-ref" title="Lecture 19 is released in Week 23">coming in Week 23</span>), and in <strong>Gaussian processes</strong> (Bayesian linear regression in an infinite feature space, <span class="plain-ref" title="Lecture 17 is released in Week 17">coming in Week 17</span>).</p>
+<p><strong>Connections to carry forward:</strong> the linear predictor $x^\top\beta$, the least-squares/MLE equivalence, the projection geometry, and the bias–variance trade-off introduced here reappear throughout the course — in <strong>logistic regression</strong> (swap Gaussian for Bernoulli likelihood, <a href="../02-logistic-regression/">Lecture 2</a>), in <strong>ridge/lasso</strong> (regularisation as the universal complexity control), in <strong>neural networks</strong> (stacked linear-plus-nonlinearity layers trained by the same SGD, <span class="plain-ref" title="Lecture 19 is released in Week 23">coming in Week 23</span>), and in <strong>Gaussian processes</strong> (Bayesian linear regression in an infinite feature space, <span class="plain-ref" title="Lecture 17 is released in Week 17">coming in Week 17</span>).</p>
 </main>
 </div>
 </body>

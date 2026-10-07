@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="description" content="What's Under the Hood? #02 — Odds, log-odds, the sigmoid, Bernoulli likelihood, cross-entropy, decision boundaries, and calibration.">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#02 Logistic Regression — What's Under the Hood?</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #555;
+    --accent: #1f4e79;
+    --accent-light: #2e6da4;
+    --border: #d8dee4;
+    --code-bg: #f5f7f9;
+    --table-stripe: #f6f8fa;
+    --box-bg: #f0f6ff;
+    --box-border: #b8d4f0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a;
+      --fg: #e6e6e6;
+      --muted: #a8b0b8;
+      --accent: #7fb8e6;
+      --accent-light: #9cc9ee;
+      --border: #333a42;
+      --code-bg: #1d2226;
+      --table-stripe: #1b1f23;
+      --box-bg: #16232e;
+      --box-border: #2a4a63;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0;
+    font-size: 18px;
+  }
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 28px 120px;
+  }
+  header.title {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 20px;
+    margin-bottom: 40px;
+  }
+  header.title h1 {
+    font-size: 2.2rem;
+    margin: 0 0 6px;
+    color: var(--accent);
+    line-height: 1.2;
+  }
+  header.title .subtitle {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 1.05rem;
+  }
+  h2 {
+    color: var(--accent);
+    font-size: 1.6rem;
+    margin-top: 2.4em;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    color: var(--accent-light);
+    font-size: 1.25rem;
+    margin-top: 1.8em;
+  }
+  h4 {
+    font-size: 1.08rem;
+    margin-top: 1.4em;
+    color: var(--fg);
+  }
+  p { margin: 0.9em 0; }
+  a { color: var(--accent-light); }
+  strong { color: var(--fg); }
+  code {
+    font-family: "SF Mono", "Consolas", "Menlo", monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    font-size: 0.82rem;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1.4em 0;
+    font-size: 0.92rem;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    display: block;
+    overflow-x: auto;
+    white-space: normal;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+  tbody tr:nth-child(even) { background: var(--table-stripe); }
+  blockquote {
+    border-left: 4px solid var(--accent-light);
+    margin: 1.2em 0;
+    padding: 4px 18px;
+    color: var(--muted);
+    background: var(--box-bg);
+    border-radius: 0 6px 6px 0;
+  }
+  ul, ol { padding-left: 1.6em; }
+  li { margin: 0.4em 0; }
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2.5em 0;
+  }
+  .box {
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 8px;
+    padding: 4px 20px;
+    margin: 1.4em 0;
+  }
+  .toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 26px;
+    margin-bottom: 40px;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 0.9rem;
+  }
+  .toc h2 {
+    border: none;
+    margin: 0 0 10px;
+    font-size: 1.15rem;
+    padding: 0;
+  }
+  .toc ol { columns: 2; column-gap: 36px; margin: 0; }
+  .toc a { text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  mjx-container { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+  figure { margin: 1.8em 0; }
+  .fig-wrap {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 18px 10px;
+  }
+  figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 10px;
+    font-style: italic;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    text-align: center;
+  }
+</style>
+<style id="layout-override">
+  .wrap { display:flex; max-width:none; margin:0; padding:0; align-items:flex-start; }
+  .sidebar { position:sticky; top:0; align-self:flex-start; width:290px; min-width:290px;
+    height:100vh; overflow-y:auto; padding:24px 20px; border-right:1px solid var(--border);
+    background:var(--code-bg); font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; }
+  .content { flex:1; min-width:0; padding:44px 56px 120px; }
+  .sb-index { display:block; background:var(--accent); color:#fff; text-decoration:none;
+    font-weight:600; font-size:0.9rem; text-align:center; padding:10px 14px; border-radius:8px;
+    margin-bottom:18px; }
+  .sb-index:hover { opacity:0.9; }
+  .sidebar .toc { position:static; margin:0 0 18px; padding:0; background:none;
+    border:none; border-radius:0; }
+  .sidebar .toc h2 { font-size:0.9rem; margin:0 0 8px; border:none; padding:0; }
+  .sidebar .toc ol { columns:1; font-size:0.8rem; padding-left:1.3em; line-height:1.5; }
+  .sidebar .toc a { color:var(--fg); }
+  .sidebar .toc a:hover { color:var(--accent); }
+  .sb-nav { display:flex; flex-direction:column; gap:10px; border-top:1px solid var(--border);
+    padding-top:16px; margin-top:4px; }
+  .sb-nav a { font-size:0.82rem; text-decoration:none; color:var(--accent); font-weight:600; }
+  .sb-nav .lbl { display:block; font-size:0.68rem; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted); font-weight:400; }
+  @media (max-width: 820px) {
+    .wrap { flex-direction:column; }
+    .sidebar { position:static; width:auto; min-width:0; height:auto; overflow:visible;
+      border-right:none; border-bottom:1px solid var(--border); }
+    .sidebar .toc ol { columns:2; }
+    .content { padding:28px 20px 80px; }
+  }
+  header.title h1 { overflow-wrap:break-word; }
+  @media (max-width: 820px){ header.title h1 { font-size:1.7rem; } }
+  /* mobile-overflow fix */
+  mjx-container[display="true"] { min-width:0 !important; overflow-x:auto; overflow-y:hidden; max-width:100%; }
+  @media (max-width: 820px){
+    .wrap { align-items:stretch; }
+    .sidebar, .content { width:100%; max-width:100%; min-width:0; }
+    pre, table, figure, .box, blockquote { max-width:100%; }
+    /* long inline formulas: swipeable instead of widening the page; no scrollbar chrome */
+    mjx-container:not([display="true"]) { display:inline-block; max-width:100%; overflow-x:auto;
+      overflow-y:hidden; vertical-align:middle; scrollbar-width:none; }
+    mjx-container:not([display="true"])::-webkit-scrollbar { display:none; }
+  }
+
+  /* --- public site theme: always light, matching the landing page palette --- */
+  html:root { color-scheme: light;
+    --bg:#ffffff; --fg:#0d1b2a; --muted:#52606d; --accent:#0a5f9e; --accent-light:#0b8fd8;
+    --border:#d9e2ec; --code-bg:#f7fafc; --table-stripe:#f7fafc; --box-bg:#eef6fc; --box-border:#c6dcec; }
+  /* --- series branding (release build) --- */
+  .sb-series { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--fg);
+    font-weight:700; font-size:0.95rem; margin-bottom:14px; }
+  .sb-series img { width:44px; height:44px; border-radius:8px; }
+  .sb-soon { display:block; font-size:0.82rem; color:var(--muted); }
+  .sb-soon .lbl { display:block; font-size:0.68rem; text-transform:uppercase; letter-spacing:.06em; }
+  header.title .eyebrow { margin:0 0 8px; color:var(--accent-light); font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; font-size:0.8rem; font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; }
+  header.title .meta { margin-top:10px; font-size:0.9rem; color:var(--muted);
+    font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; }
+  .plain-ref { text-decoration:underline dotted; text-underline-offset:3px; }
+</style>
+<script data-goatcounter="https://whatsunderthehood.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<div class="wrap">
+<aside class="sidebar">
+<a class="sb-series" href="../"><img src="../assets/series-logo.svg" alt=""><span>What's Under the Hood?</span></a>
+<a class="sb-index" href="../">&larr; Series index</a>
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#s1">Motivation and Problem Setting</a></li>
+    <li><a href="#s2">Core Intuition</a></li>
+    <li><a href="#s3">Mathematical Formulation</a></li>
+    <li><a href="#s4">Derivation</a></li>
+    <li><a href="#s5">Algorithm</a></li>
+    <li><a href="#s6">Worked Numerical Example</a></li>
+    <li><a href="#s7">Geometry and Visual Interpretation</a></li>
+    <li><a href="#s8">Statistical Interpretation</a></li>
+    <li><a href="#s9">Training and Optimisation</a></li>
+    <li><a href="#s10">Hyperparameters</a></li>
+    <li><a href="#s11">Bias–Variance Behaviour</a></li>
+    <li><a href="#s12">Computational Complexity</a></li>
+    <li><a href="#s13">Data Preparation</a></li>
+    <li><a href="#s14">Evaluation</a></li>
+    <li><a href="#s15">Validation Strategy</a></li>
+    <li><a href="#s16">Diagnostics</a></li>
+    <li><a href="#s17">Strengths</a></li>
+    <li><a href="#s18">Weaknesses and Failure Modes</a></li>
+    <li><a href="#s19">Comparison With Related Algorithms</a></li>
+    <li><a href="#s20">When I Should Use It</a></li>
+    <li><a href="#s21">Python Implementation From Scratch</a></li>
+    <li><a href="#s22">Production Python Implementation</a></li>
+    <li><a href="#s23">Library Parameters Mapped to Mathematics</a></li>
+    <li><a href="#s24">Common Interview Questions</a></li>
+    <li><a href="#s25">Common Misconceptions</a></li>
+    <li><a href="#s26">Exercises</a></li>
+    <li><a href="#s26s">Solutions</a></li>
+    <li><a href="#s27">Summary Cheat Sheet</a></li>
+  </ol>
+</nav>
+<div class="sb-nav"><a href="../01-linear-regression/"><span class="lbl">&larr; Previous</span>Linear Regression</a><span class="sb-soon"><span class="lbl">Next &rarr;</span>k-Nearest Neighbours &middot; coming next week</span></div>
+</aside>
+<main class="content">
+<header class="title">
+  <p class="eyebrow">What's Under the Hood? &middot; #02 &middot; Week 2</p>
+  <h1>Lecture 2 — Logistic Regression</h1>
+  <div class="subtitle">Part I — Mathematical Foundations and Classical Supervised Learning</div>
+  <div class="meta">Dr. Muhammad Shoaib &middot; Applied Mathematics &amp; Data Science &middot; <a href="https://www.linkedin.com/newsletters/7510688077275648000/">LinkedIn newsletter</a> &middot; every lecture follows the same 27 sections &mdash; use the sidebar to navigate.</div>
+</header>
+
+<p>In <a href="../01-linear-regression/">Lecture 1</a> we built the linear predictor $\eta = x^\top\beta$ and fitted it to a continuous target. Logistic regression keeps the same linear predictor, but the target is now a <em>class label</em>: spam or not, defaulted or not, malignant or benign. A linear function ranges over all of $\mathbb{R}$, whereas a probability must lie in $[0,1]$, and logistic regression resolves the mismatch by modelling the log-odds, which are unbounded. It is the standard classifier of applied statistics and the usual baseline for more flexible classifiers. For this course it matters for a further reason: it is a single-neuron neural network with a sigmoid activation and a cross-entropy loss. Understanding it fully means meeting, in miniature, the machinery of deep learning: the sigmoid, the log-loss, the gradient and gradient descent.</p>
+
+<hr>
+
+<h2 id="s1">1. Motivation and Problem Setting</h2>
+
+<p><strong>The problem.</strong> We observe feature vectors $x_i \in \mathbb{R}^p$ and a <em>binary</em> label $y_i \in \{0,1\}$. We want to model $P(y=1 \mid x)$, the probability of the positive class given the features, so that we can (a) rank examples by risk, (b) produce calibrated probabilities, and (c) draw a decision boundary to classify.</p>
+
+<p><strong>Why least squares on 0/1 labels fails.</strong> If you regress $y \in \{0,1\}$ on $x$ with OLS (the "linear probability model"), three things go wrong:</p>
+<ul>
+  <li>The fitted values are unbounded, so you get "probabilities" like $1.3$ or $-0.2$, which are meaningless.</li>
+  <li>The errors are inherently heteroscedastic: for a Bernoulli outcome the variance is $p(1-p)$, which depends on $x$, violating OLS's constant-variance assumption and invalidating its inference.</li>
+  <li>The linear form forces the effect of $x$ on probability to be constant everywhere, whereas near-certain regions ($p\approx0$ or $p\approx1$) should be insensitive to further change.</li>
+</ul>
+<p>Logistic regression fixes all three by modelling the <em>log-odds</em> as linear, which automatically squashes predictions into $(0,1)$.</p>
+
+<p><strong>Why it was developed.</strong> The logistic function arose in 19th-century population growth models (Verhulst) and was adapted for binary regression in the mid-20th century (Berkson coined "logit"). It became dominant because it is the maximum-likelihood classifier under a simple probabilistic model and because its coefficients have a direct interpretation as log-odds ratios, which are standard in epidemiology, credit scoring, and the social sciences.</p>
+
+<p><strong>Where it sits.</strong> Logistic regression is a supervised, parametric, probabilistic and discriminative linear classifier: it outputs class probabilities, from which labels follow by thresholding. It is a <em>generalised linear model</em> (GLM) with a Bernoulli response and a logit link, the sibling of linear regression (Gaussian response, identity link) and Poisson regression (count response, log link). It is also a neural network with a single layer and a single output unit.</p>
+
+<p><strong>Assumptions.</strong></p>
+<ol>
+  <li><strong>Linearity of the log-odds:</strong> $\log\frac{P(y=1\mid x)}{P(y=0\mid x)} = \beta_0 + \sum_j\beta_j x_j$. This is the core structural assumption: linearity in the log-odds, not in the probability.</li>
+  <li><strong>Independent observations</strong> (conditional on $x$).</li>
+  <li><strong>No perfect multicollinearity</strong> among features (else coefficients are unidentifiable).</li>
+  <li><strong>No perfect separation:</strong> if a hyperplane perfectly splits the classes, the MLE diverges (coefficients $\to\infty$). See §18.</li>
+  <li><strong>Large enough sample</strong> relative to the number of features (rule of thumb: at least ~10 events per predictor for stable estimates).</li>
+</ol>
+
+<p><strong>When reasonable / unreasonable.</strong> The log-odds-linear assumption is reasonable for many real problems and can be extended with engineered features (interactions, splines, polynomials) exactly as in linear regression. It is unreasonable when the decision boundary is curved or otherwise complex and you don't engineer features for it; then trees or kernel methods win. Perfect or near-perfect separation (common in small or high-dimensional data) breaks plain MLE and requires regularisation.</p>
+
+<h2 id="s2">2. Core Intuition</h2>
+
+<p>Start with the <em>odds</em>. If an event has probability $p$, its odds are $\frac{p}{1-p}$, the ratio of "how likely it happens" to "how likely it doesn't." A probability of $0.8$ is odds of $4$ (four-to-one on). Odds range over $(0,\infty)$. Take the logarithm and you get the <em>log-odds</em> (the "logit"), which ranges over all of $(-\infty,\infty)$, exactly the range of a linear function. That is the key insight:</p>
+
+<div class="box">
+$$ \underbrace{\log\frac{p}{1-p}}_{\text{unbounded}} = \underbrace{\beta_0 + \beta_1 x_1 + \cdots + \beta_p x_p}_{\text{linear predictor}}. $$
+</div>
+
+<p>Model the <em>log-odds</em> as linear (both sides are unbounded, so the ranges match), then invert to recover the probability. Solving the box for $p$ gives the <em>sigmoid</em> (logistic) function:</p>
+$$ p = \sigma(\eta) = \frac{1}{1+e^{-\eta}}, \qquad \eta = x^\top\beta. $$
+
+<p><strong>Geometric intuition.</strong> The sigmoid is an S-shaped curve that maps the whole real line into $(0,1)$: at $\eta=0$ it passes through $0.5$; as $\eta\to+\infty$ it saturates at $1$; as $\eta\to-\infty$ at $0$. The linear predictor $\eta = x^\top\beta$ defines a hyperplane; the sigmoid then "wraps" that flat plane into a smooth probability surface that is steepest at the boundary and flattens into near-certainty far from it. The set where $\eta=0$ (i.e. $p=0.5$) is the <em>decision boundary</em>, and it is a hyperplane, so logistic regression is a <em>linear classifier</em>.</p>
+
+<figure>
+<div class="fig-wrap">
+<svg viewBox="0 0 440 270" role="img" aria-label="The sigmoid function mapping the linear predictor to a probability between 0 and 1">
+  <!-- axes -->
+  <line x1="50" y1="135" x2="415" y2="135" stroke="var(--border)" stroke-width="1.2"/>   <!-- p=0.5 midline -->
+  <line x1="50" y1="30" x2="50" y2="240" stroke="var(--border)" stroke-width="1.5"/>
+  <line x1="230" y1="30" x2="230" y2="240" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 3"/> <!-- eta=0 -->
+  <!-- gridlines p=0 and p=1 -->
+  <line x1="50" y1="240" x2="415" y2="240" stroke="var(--border)" stroke-width="1.5"/>
+  <line x1="50" y1="30" x2="415" y2="30" stroke="var(--border)" stroke-width="0.8" stroke-dasharray="2 3"/>
+  <!-- labels -->
+  <text x="53" y="27" font-family="sans-serif" font-size="10" fill="var(--muted)">1.0</text>
+  <text x="53" y="132" font-family="sans-serif" font-size="10" fill="var(--muted)">0.5</text>
+  <text x="53" y="252" font-family="sans-serif" font-size="10" fill="var(--muted)">0.0</text>
+  <text x="405" y="128" font-family="sans-serif" font-size="11" fill="var(--muted)">&#951; = x&#7488;&#946;</text>
+  <text x="235" y="255" font-family="sans-serif" font-size="10" fill="var(--muted)">&#951;=0</text>
+  <text x="20" y="40" font-family="sans-serif" font-size="11" fill="var(--muted)">p</text>
+  <!-- sigmoid curve -->
+  <polyline points="50,239.5 110,236.2 140,230.1 170,215 200,183.5 230,135 260,86.5 290,55 320,39.9 350,33.8 415,30.5"
+            fill="none" stroke="var(--accent)" stroke-width="2.6"/>
+  <!-- midpoint marker -->
+  <circle cx="230" cy="135" r="4" fill="var(--accent)"/>
+  <text x="238" y="126" font-family="sans-serif" font-size="10" fill="var(--accent)">(0, 0.5) boundary</text>
+  <!-- decision shading labels -->
+  <text x="90" y="60" font-family="sans-serif" font-size="11" fill="var(--muted)">predict 0</text>
+  <text x="330" y="215" font-family="sans-serif" font-size="11" fill="var(--muted)">predict 1</text>
+</svg>
+</div>
+<figcaption>The sigmoid &#963;(&#951;)=1/(1+e&#8315;&#951;) squashes the unbounded linear predictor &#951;=x&#7488;&#946; into a probability. It is steepest at the decision boundary &#951;=0 (p=0.5) and saturates towards 0 and 1, so points far from the boundary are predicted near-certainly, and &#8214;&#946;&#8214; controls how sharp the transition is.</figcaption>
+</figure>
+
+<p><strong>Probabilistic intuition.</strong> Each label is a coin flip whose bias depends on $x$: $y \sim \text{Bernoulli}(\sigma(x^\top\beta))$. Fitting means choosing $\beta$ to make the observed sequence of heads/tails (1s/0s) as probable as possible, which is maximum likelihood. Because we are fitting probabilities, we penalise confident-but-wrong predictions harshly (predicting $p=0.99$ when the truth is $y=0$ costs a lot), which is what the log-loss encodes.</p>
+
+<p><strong>Optimisation intuition.</strong> Unlike linear regression, there is no closed form, but the negative log-likelihood is <em>convex</em>, so there is a single global optimum and gradient-based methods find it reliably.</p>
+
+<p><em>Tiny numerical seed.</em> One feature, hours studied $x$, pass/fail $y$. If $\hat\beta_0=-4,\hat\beta_1=1.5$, then a student with $x=3$ has $\eta=-4+4.5=0.5$, so $p=\sigma(0.5)\approx0.62$: predicted to pass, but not confidently.</p>
+
+<h2 id="s3">3. Mathematical Formulation</h2>
+
+<p><strong>Notation.</strong> As in <a href="../01-linear-regression/">Lecture 1</a>, prepend a $1$ to each feature vector so $x_i=(1,x_{i1},\dots,x_{ip})^\top\in\mathbb{R}^{p+1}$ and $\beta=(\beta_0,\dots,\beta_p)^\top$. Labels $y_i\in\{0,1\}$. Write the linear predictor $\eta_i = x_i^\top\beta$ and the predicted probability $p_i = \sigma(\eta_i)$.</p>
+
+<p><strong>The sigmoid and its properties.</strong></p>
+$$ \sigma(z) = \frac{1}{1+e^{-z}}, \qquad \sigma(-z)=1-\sigma(z), \qquad \sigma'(z)=\sigma(z)\big(1-\sigma(z)\big). $$
+<p>That last identity, $\sigma' = \sigma(1-\sigma)$, is what makes the gradients so clean, and we will use it repeatedly.</p>
+
+<p><strong>The model.</strong></p>
+$$ P(y=1\mid x)=\sigma(x^\top\beta)=\frac{1}{1+e^{-x^\top\beta}}, \qquad P(y=0\mid x)=1-\sigma(x^\top\beta). $$
+<p>Compactly, for $y\in\{0,1\}$: $\;P(y\mid x)=p^{\,y}(1-p)^{1-y}$ (the Bernoulli pmf).</p>
+
+<p><strong>The likelihood.</strong> Assuming independent observations,</p>
+$$ L(\beta)=\prod_{i=1}^n p_i^{\,y_i}(1-p_i)^{1-y_i}. $$
+
+<p><strong>The log-likelihood.</strong> Products become sums under the log:</p>
+$$ \ell(\beta)=\sum_{i=1}^n\Big[\,y_i\log p_i+(1-y_i)\log(1-p_i)\,\Big]. $$
+
+<p><strong>The loss (objective).</strong> We minimise the negative log-likelihood, which is the binary cross-entropy:</p>
+<div class="box">
+$$ J(\beta)=-\frac{1}{n}\sum_{i=1}^n\Big[\,y_i\log p_i+(1-y_i)\log(1-p_i)\,\Big], \qquad p_i=\sigma(x_i^\top\beta). $$
+</div>
+<p>Cross-entropy and negative log-likelihood are the same object here, so "log-loss", "cross-entropy" and "maximum likelihood" name the same procedure.</p>
+
+<p><strong>Regularised variants.</strong> Add a penalty on the weights (never the intercept):</p>
+$$ J_{\ell_2}(\beta)=J(\beta)+\frac{\lambda}{2}\|\beta_{1:p}\|_2^2, \qquad J_{\ell_1}(\beta)=J(\beta)+\lambda\|\beta_{1:p}\|_1. $$
+<p>$\ell_2$ (ridge-style) shrinks coefficients and tames separation; $\ell_1$ (lasso-style) yields sparse, feature-selecting solutions.</p>
+
+<h2 id="s4">4. Derivation</h2>
+
+<h3>4.1 From odds to the sigmoid</h3>
+<p>Assume the log-odds are linear: $\log\frac{p}{1-p}=\eta$ where $\eta=x^\top\beta$. Exponentiate: $\frac{p}{1-p}=e^{\eta}$. Solve for $p$:</p>
+$$ p=e^{\eta}(1-p)\ \Rightarrow\ p+pe^{\eta}=e^{\eta}\ \Rightarrow\ p=\frac{e^{\eta}}{1+e^{\eta}}=\frac{1}{1+e^{-\eta}}=\sigma(\eta). $$
+<p>So "log-odds linear" is <em>equivalent</em> to "probability = sigmoid of a linear predictor." The sigmoid is the inverse of the logit link, so it follows from the log-odds assumption.</p>
+
+<h3>4.2 The cross-entropy loss from maximum likelihood</h3>
+<p>Take the log of the Bernoulli likelihood:</p>
+$$ \ell(\beta)=\log\prod_i p_i^{y_i}(1-p_i)^{1-y_i}=\sum_i\big[y_i\log p_i+(1-y_i)\log(1-p_i)\big]. $$
+<p>Maximising $\ell$ is minimising $-\ell$, the cross-entropy. The <em>reason</em> this loss punishes confident errors: if $y_i=1$ but $p_i\to0$, then $\log p_i\to-\infty$, an unboundedly large penalty. Cross-entropy is also a proper scoring rule: its expected value is minimised by reporting the true probability.</p>
+
+<h3>4.3 The gradient (score function)</h3>
+<p>This is the derivation to know cold. We need $\nabla_\beta\ell$. Work on one term and use the chain rule through $p_i=\sigma(\eta_i)$, $\eta_i=x_i^\top\beta$.</p>
+<p>First, the derivative of a single log-likelihood term with respect to $p_i$:</p>
+$$ \frac{\partial}{\partial p_i}\big[y_i\log p_i+(1-y_i)\log(1-p_i)\big]=\frac{y_i}{p_i}-\frac{1-y_i}{1-p_i}=\frac{y_i-p_i}{p_i(1-p_i)}. $$
+<p>Next, $\frac{\partial p_i}{\partial\eta_i}=\sigma'(\eta_i)=p_i(1-p_i)$, and $\frac{\partial\eta_i}{\partial\beta}=x_i$. Multiplying the chain together, the $p_i(1-p_i)$ factors cancel:</p>
+$$ \frac{\partial\ell_i}{\partial\beta}=\frac{y_i-p_i}{p_i(1-p_i)}\cdot p_i(1-p_i)\cdot x_i=(y_i-p_i)\,x_i. $$
+<p>Summing over observations gives the full gradient of the log-likelihood, and hence of the loss $J=-\frac1n\ell$:</p>
+<div class="box">
+$$ \nabla_\beta\ell=\sum_{i=1}^n(y_i-p_i)\,x_i = X^\top(y-p), \qquad \nabla_\beta J=-\frac1n X^\top(y-p). $$
+</div>
+<p>Read it: the gradient is the feature matrix times the <em>residual</em> $(y_i-p_i)$, the difference between observed label and predicted probability. This has the same form as the linear-regression gradient $X^\top(y-\hat y)$; only the meaning of the prediction changed (a probability instead of a real value). This is why a logistic output unit fits directly into a neural network: backpropagation through it needs only $(y-p)$.</p>
+
+<h3>4.4 The Hessian and convexity</h3>
+<p>Differentiate the gradient again. Since $\frac{\partial p_i}{\partial\beta}=p_i(1-p_i)x_i$,</p>
+$$ \nabla^2_\beta\ell=-\sum_{i=1}^n p_i(1-p_i)\,x_i x_i^\top = -X^\top S X, \qquad S=\operatorname{diag}\big(p_i(1-p_i)\big). $$
+<p>Each $p_i(1-p_i)>0$, so $X^\top S X$ is positive semidefinite, meaning the negative log-likelihood $J$ has a positive-semidefinite Hessian, so it is convex. Convexity guarantees no spurious local minima: any optimiser that reaches a stationary point has found the global optimum. (With $\ell_2$ regularisation the Hessian becomes $X^\top SX+\lambda I\succ0$, strictly convex, so the optimum is unique even under separation.)</p>
+
+<h3>4.5 Newton's method / IRLS</h3>
+<p>A Newton step uses both gradient and Hessian:</p>
+$$ \beta^{(t+1)}=\beta^{(t)}+(X^\top S X)^{-1}X^\top(y-p). $$
+<p>Rearranged, each iteration is a <em>weighted least-squares</em> solve, hence the name iteratively reweighted least squares (IRLS). Each iteration re-linearises the problem and solves a weighted OLS with weights $p_i(1-p_i)$ (largest near $p=0.5$, where an observation is most informative). Each step therefore solves weighted versions of the normal equations from <a href="../01-linear-regression/">Lecture 1</a>.</p>
+
+<h2 id="s5">5. Algorithm</h2>
+
+<p><strong>Gradient descent version (scales to large data):</strong></p>
+<pre><code>Input: X (n×(p+1), first col ones), y ∈ {0,1}^n, learning rate η, iters T, (optional) λ
+1. Initialise β ← 0            # zero is fine; loss is convex
+2. repeat T times (or until ||gradient|| &lt; tol):
+     η_vec = X β               # linear predictor, shape (n,)
+     p     = 1 / (1 + exp(−η_vec))     # predicted probabilities
+     grad  = (1/n) Xᵀ (p − y) + λ·[0, β₁..β_p]   # ∇J (intercept unpenalised)
+     β     = β − η · grad      # descend
+3. return β
+Predict: p* = σ(x*ᵀβ);  label = 1 if p* ≥ threshold (default 0.5) else 0</code></pre>
+
+<p><strong>Newton / IRLS version (fast on small–medium p, few iterations):</strong></p>
+<pre><code>1. Initialise β ← 0
+2. repeat until convergence:
+     p = σ(Xβ);  S = diag(p_i(1−p_i))
+     β ← β + (Xᵀ S X + λI)⁻¹ Xᵀ (y − p)     # one weighted-least-squares solve
+3. return β, and Cov(β) ≈ (Xᵀ S X)⁻¹  for standard errors</code></pre>
+
+<p><strong>Stopping criteria:</strong> gradient norm below tolerance, change in loss below tolerance, or a max-iteration cap. <strong>Outputs:</strong> the coefficient vector $\hat\beta$; predicted probabilities; optionally the covariance of $\hat\beta$ (from the inverse Hessian) for inference.</p>
+
+<h2 id="s6">6. Worked Numerical Example</h2>
+
+<p>One feature. Four students: hours studied $x$ and pass ($1$)/fail ($0$).</p>
+
+<table>
+<thead><tr><th>$i$</th><th>$x_i$</th><th>$y_i$</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>1</td><td>0</td></tr>
+<tr><td>2</td><td>2</td><td>0</td></tr>
+<tr><td>3</td><td>3</td><td>1</td></tr>
+<tr><td>4</td><td>4</td><td>1</td></tr>
+</tbody>
+</table>
+
+<p>We'll take a fixed candidate $\beta=(\beta_0,\beta_1)=(-5,\,2)$ and compute one gradient step by hand to show the mechanics (the true MLE is found by iterating this).</p>
+
+<p><strong>Step 1: linear predictors $\eta_i=\beta_0+\beta_1 x_i$:</strong></p>
+$$ \eta_1=-5+2=-3,\quad \eta_2=-5+4=-1,\quad \eta_3=-5+6=1,\quad \eta_4=-5+8=3. $$
+
+<p><strong>Step 2: probabilities $p_i=\sigma(\eta_i)$:</strong></p>
+$$ p_1=\sigma(-3)\approx0.0474,\ \ p_2=\sigma(-1)\approx0.2689,\ \ p_3=\sigma(1)\approx0.7311,\ \ p_4=\sigma(3)\approx0.9526. $$
+
+<p><strong>Step 3: residuals $y_i-p_i$:</strong></p>
+$$ 0-0.0474=-0.0474,\quad 0-0.2689=-0.2689,\quad 1-0.7311=0.2689,\quad 1-0.9526=0.0474. $$
+
+<p><strong>Step 4: gradient of log-likelihood $\nabla\ell=\sum_i(y_i-p_i)x_i$</strong> (components: intercept uses $x_{i0}=1$, slope uses $x_i$):</p>
+$$ \frac{\partial\ell}{\partial\beta_0}=\sum_i(y_i-p_i)=-0.0474-0.2689+0.2689+0.0474=0. $$
+$$ \frac{\partial\ell}{\partial\beta_1}=\sum_i(y_i-p_i)x_i=(-0.0474)(1)+(-0.2689)(2)+(0.2689)(3)+(0.0474)(4) $$
+$$ =-0.0474-0.5378+0.8067+0.1896=0.4111. $$
+
+<p>The intercept gradient is exactly $0$ here because this symmetric dataset already balances the classes at $\beta_0=-5,\beta_1=2$ (the data are symmetric about $x=2.5$ and this line puts $p=0.5$ there). The slope gradient is positive, so gradient <em>ascent</em> on $\ell$ (descent on $J$) would <em>increase</em> $\beta_1$: the model wants a steeper slope, sharpening the boundary. This is consistent with the data being perfectly separable, which drives $\beta_1\to\infty$ at the unregularised MLE (see §18).</p>
+
+<p><strong>Step 5: current loss (cross-entropy).</strong> Per-observation $-[y\log p+(1-y)\log(1-p)]$:</p>
+$$ -\log(1-p_1)=-\log0.9526=0.0486,\quad -\log(1-p_2)=-\log0.7311=0.3133, $$
+$$ -\log p_3=-\log0.7311=0.3133,\quad -\log p_4=-\log0.9526=0.0486. $$
+<p>Average $J=(0.0486+0.3133+0.3133+0.0486)/4\approx0.181$. Increasing $\beta_1$ (steeper boundary) would push $p_3,p_4$ towards $1$ and $p_1,p_2$ towards $0$, lowering $J$ further towards $0$, again the separation signature.</p>
+
+<h2 id="s7">7. Geometry and Visual Interpretation</h2>
+
+<p><strong>The decision boundary is a hyperplane.</strong> We classify as positive when $p\ge0.5$, i.e. when $\sigma(x^\top\beta)\ge0.5$, i.e. when $x^\top\beta\ge0$. The set $\{x:x^\top\beta=0\}$ is a flat hyperplane in feature space; $\beta_{1:p}$ is its normal vector, pointing in the direction of increasing probability. So despite the nonlinear sigmoid, the <em>boundary</em> is linear, and logistic regression is a linear classifier. A useful picture: a 2D scatter of two classes, a straight dividing line, and shaded contours of constant probability ($0.1,0.3,0.5,0.7,0.9$) running parallel to that line, packed tightly where the sigmoid is steep and spreading out towards the saturated corners.</p>
+
+<p><strong>The probability surface.</strong> Over 2D feature space, $p(x)=\sigma(x^\top\beta)$ is a smooth "ramp": flat near $0$ on one side, flat near $1$ on the other, with a diagonal S-shaped rise across the boundary. The <em>steepness</em> of the ramp is governed by $\|\beta\|$: larger weights → sharper transition (more confident, more like a step function); smaller weights → gentle, uncertain slope. Regularisation shrinks $\|\beta\|$ and thus <em>softens</em> the ramp.</p>
+
+<figure>
+<div class="fig-wrap">
+<svg viewBox="0 0 420 300" role="img" aria-label="Two classes in 2D with a linear decision boundary and parallel constant-probability contours">
+  <!-- frame -->
+  <rect x="50" y="30" width="330" height="230" fill="none" stroke="var(--border)" stroke-width="1.5"/>
+  <text x="360" y="278" font-family="sans-serif" font-size="11" fill="var(--muted)">x&#8321;</text>
+  <text x="30" y="42" font-family="sans-serif" font-size="11" fill="var(--muted)">x&#8322;</text>
+  <!-- probability contours (parallel to boundary, dashed) -->
+  <line x1="120" y1="260" x2="300" y2="30" stroke="var(--accent-light)" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
+  <line x1="175" y1="260" x2="355" y2="30" stroke="var(--accent-light)" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
+  <text x="120" y="255" font-family="sans-serif" font-size="9" fill="var(--muted)">p=0.1</text>
+  <text x="300" y="45" font-family="sans-serif" font-size="9" fill="var(--muted)">p=0.9</text>
+  <!-- decision boundary p=0.5 -->
+  <line x1="147" y1="260" x2="327" y2="30" stroke="var(--fg)" stroke-width="2.4"/>
+  <text x="250" y="150" font-family="sans-serif" font-size="11" fill="var(--fg)" transform="rotate(-52 250 150)">p = 0.5 (&#951;=0)</text>
+  <!-- class 0 points (lower-right side) -->
+  <circle cx="250" cy="230" r="5" fill="var(--accent)"/>
+  <circle cx="300" cy="200" r="5" fill="var(--accent)"/>
+  <circle cx="320" cy="240" r="5" fill="var(--accent)"/>
+  <circle cx="270" cy="185" r="5" fill="var(--accent)"/>
+  <circle cx="340" cy="180" r="5" fill="var(--accent)"/>
+  <!-- class 1 points (upper-left side) -->
+  <circle cx="100" cy="90" r="5" fill="none" stroke="var(--accent-light)" stroke-width="2"/>
+  <circle cx="140" cy="70" r="5" fill="none" stroke="var(--accent-light)" stroke-width="2"/>
+  <circle cx="110" cy="140" r="5" fill="none" stroke="var(--accent-light)" stroke-width="2"/>
+  <circle cx="160" cy="110" r="5" fill="none" stroke="var(--accent-light)" stroke-width="2"/>
+  <circle cx="90" cy="180" r="5" fill="none" stroke="var(--accent-light)" stroke-width="2"/>
+  <!-- normal vector beta -->
+  <line x1="237" y1="145" x2="285" y2="110" stroke="#d9534f" stroke-width="2" marker-end="url(#arrB2)"/>
+  <text x="288" y="108" font-family="sans-serif" font-size="12" fill="#d9534f">&#946;</text>
+  <defs>
+    <marker id="arrB2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#d9534f"/></marker>
+  </defs>
+  <!-- legend -->
+  <circle cx="63" cy="248" r="5" fill="var(--accent)"/>
+  <text x="72" y="252" font-family="sans-serif" font-size="10" fill="var(--fg)">class 0</text>
+  <circle cx="130" cy="248" r="5" fill="none" stroke="var(--accent-light)" stroke-width="2"/>
+  <text x="140" y="252" font-family="sans-serif" font-size="10" fill="var(--fg)">class 1</text>
+</svg>
+</div>
+<figcaption>Logistic regression is a linear classifier: the boundary p=0.5 is a straight hyperplane with normal vector &#946;. Contours of constant probability run parallel to it, packed tightly where the sigmoid is steep. Moving along &#946; increases the predicted probability fastest.</figcaption>
+</figure>
+
+<p><strong>Curved boundaries via features.</strong> Just as polynomial linear regression fits curves, adding $x_1^2, x_2^2, x_1x_2$ etc. to logistic regression produces boundaries that are ellipses, parabolas, or more complex shapes in the <em>original</em> feature space, while remaining a hyperplane in the expanded feature space. The linearity is in the (possibly transformed) features.</p>
+
+<h2 id="s8">8. Statistical Interpretation</h2>
+
+<p><strong>Coefficients are log-odds ratios.</strong> A one-unit increase in $x_j$ (holding others fixed) adds $\beta_j$ to the log-odds, i.e. <em>multiplies the odds by $e^{\beta_j}$</em>. So $e^{\beta_j}$ is the <em>odds ratio</em>. Example: $\beta_j=0.7\Rightarrow e^{0.7}\approx2.0$, meaning each unit of $x_j$ doubles the odds. Odds ratios also remain estimable under case–control sampling, where only the intercept is distorted, which is one reason the model is standard in epidemiology.</p>
+
+<p><strong>MLE properties.</strong> The maximum-likelihood estimator $\hat\beta$ is <em>consistent</em> and <em>asymptotically normal</em>: $\hat\beta \approx \mathcal{N}\big(\beta,\,(X^\top S X)^{-1}\big)$ for large $n$, where $X^\top S X$ is the observed Fisher information (the negative Hessian). Standard errors are the square roots of the diagonal of $(X^\top S X)^{-1}$. Unlike OLS, these results are <em>asymptotic</em> (large-sample), not exact.</p>
+
+<p><strong>Inference.</strong> The <em>Wald test</em> uses $z_j=\hat\beta_j/\operatorname{SE}(\hat\beta_j)$ compared to a standard normal; a confidence interval for the odds ratio is $\exp\big(\hat\beta_j\pm z_{1-\alpha/2}\operatorname{SE}(\hat\beta_j)\big)$. The <em>likelihood-ratio test</em> compares $2(\ell_{\text{full}}-\ell_{\text{reduced}})$ to a $\chi^2$ distribution and is generally more reliable than Wald (especially near separation). Model fit is often summarised by the <em>deviance</em> $=-2\ell$, analogous to RSS.</p>
+
+<p><strong>ML vs inference framing.</strong> The statistician reads off odds ratios, Wald/LR tests, and confidence intervals to make claims about associations. The machine learner cares about held-out log-loss, AUC, and calibration. Same fitted model; the caution from <a href="../01-linear-regression/">Lecture 1</a> applies doubly: $p$-values are invalid if you data-snooped the feature set, and asymptotic SEs are unreliable in small or separated data.</p>
+
+<h2 id="s9">9. Training and Optimisation</h2>
+
+<p><strong>No closed form.</strong> Setting $\nabla\ell=X^\top(y-p)=0$ gives $p$ as a nonlinear function of $\beta$ through the sigmoid, so there is no algebraic solution, and we must optimise numerically. What keeps this tractable is convexity (§4.4): the loss surface is a single bowl, so any convergent descent method reaches the global optimum.</p>
+
+<ul>
+  <li><strong>Gradient descent / SGD:</strong> update $\beta\leftarrow\beta-\eta\,\frac1n X^\top(p-y)$. Simple, scales to millions of rows, the same optimiser used for neural nets. Standardise features so a single learning rate suits all coordinates.</li>
+  <li><strong>Newton's method / IRLS:</strong> uses the Hessian for quadratic convergence, typically 5–10 iterations to high precision on small/medium problems. Cost per iteration is a $p\times p$ solve ($O(np^2+p^3)$), so it's preferred when $p$ is modest. This is what <code>statsmodels</code> uses by default and it returns the Fisher-information covariance as a by-product.</li>
+  <li><strong>Quasi-Newton (L-BFGS):</strong> approximates the Hessian without forming it; scikit-learn's default solver. A good middle ground for medium/large $p$.</li>
+  <li><strong>Coordinate descent:</strong> the method of choice for $\ell_1$-penalised logistic regression (the <code>liblinear</code> solver), because the non-smooth $\ell_1$ term can be handled one coordinate at a time. The <code>saga</code> solver also supports $\ell_1$, using proximal stochastic-gradient steps.</li>
+</ul>
+
+<p><strong>Convergence caveat: separation.</strong> If the data are linearly separable, the likelihood has <em>no finite maximiser</em>: pushing $\|\beta\|\to\infty$ keeps increasing the likelihood towards 1. Iterative solvers then fail to converge (coefficients and SEs blow up). Fixes: $\ell_2$ regularisation (restores a finite unique optimum), or Firth's penalised likelihood.</p>
+
+<h2 id="s10">10. Hyperparameters</h2>
+
+<p><strong>$C$ (inverse regularisation strength): scikit-learn's main knob; $C=1/\lambda$.</strong></p>
+<ul>
+  <li><em>Mathematically:</em> the objective is $\;J(\beta)+\frac{1}{C}\cdot\text{penalty}$ (or equivalently $C\cdot\text{loss}+\text{penalty}$ depending on convention). Large $C$ = weak penalty; small $C$ = strong penalty.</li>
+  <li><em>Increasing $C$ (weaker regularisation):</em> coefficients grow, boundary sharpens → lower bias, higher variance; risks overfitting and separation blow-up.</li>
+  <li><em>Decreasing $C$ (stronger regularisation):</em> coefficients shrink towards 0, boundary softens → higher bias, lower variance; at $C\to0$ the model predicts the base rate everywhere.</li>
+  <li><em>Cost:</em> negligible per-fit; the cost is the CV search. <em>Guidance:</em> tune on a log grid ($10^{-3}$ to $10^{3}$) by cross-validated log-loss or AUC; always standardise features first.</li>
+</ul>
+
+<p><strong>Penalty type: $\ell_2$, $\ell_1$ or elastic net.</strong> $\ell_2$ shrinks smoothly and stabilises separation (default choice); $\ell_1$ drives coefficients to exactly zero for feature selection; elastic net blends both. In scikit-learn 1.8 the type is set by <code>l1_ratio</code> (0 for $\ell_2$, 1 for $\ell_1$, values in between for elastic net); the older <code>penalty</code> argument is deprecated. Choice controls the <em>shape</em> of the constraint region, with the same geometry as <a href="../01-linear-regression/">Lecture 1</a> §19.</p>
+
+<p><strong>Decision threshold.</strong> A deployment choice, separate from training: the $0.5$ cut is arbitrary. Lowering the threshold raises recall at the cost of precision (and vice versa). Choose it from the business cost of false positives vs false negatives, or to hit a target on the ROC/PR curve, once the model is fitted.</p>
+
+<p><strong>Class weights.</strong> <code>class_weight='balanced'</code> reweights the loss by inverse class frequency, effectively up-weighting the minority class, which matters under imbalance (§13).</p>
+
+<p><strong>Solver and max_iter.</strong> Numerical, not statistical: pick a solver compatible with your penalty (<code>lbfgs</code>/<code>newton-cg</code> for $\ell_2$, <code>liblinear</code>/<code>saga</code> for $\ell_1$), and raise <code>max_iter</code> if you see convergence warnings.</p>
+
+<h2 id="s11">11. Bias–Variance Behaviour</h2>
+
+<ul>
+  <li><strong>Underfitting (high bias):</strong> the true boundary is nonlinear but you fit only a plain linear logit, or you regularise too hard (small $C$). The model cannot bend to the data; both train and test error stay high. Remedy: add interaction/polynomial/spline features, or increase $C$.</li>
+  <li><strong>Overfitting (high variance):</strong> many features relative to $n$, high-degree engineered features, or weak regularisation (large $C$). Coefficients grow large, the boundary contorts around training points, and, in the extreme, the data become separable and coefficients diverge. Symptoms: near-perfect training performance, poor test log-loss and implausibly large coefficients. Remedy: stronger regularisation, fewer features, more data.</li>
+  <li><strong>Model capacity</strong> is set jointly by the feature richness and $\|\beta\|$; regularisation is the dial that trades a little bias for a large reduction in variance, usually improving held-out log-loss.</li>
+  <li><strong>Data-size sensitivity:</strong> logistic regression is data-efficient: with $p$ small it needs relatively few events to estimate stable coefficients (the "10 events per predictor" heuristic). Small samples inflate variance and make separation likely, so regularise.</li>
+</ul>
+
+<h2 id="s12">12. Computational Complexity</h2>
+
+<p>Let $n$ = observations, $p$ = features, $T$ = iterations.</p>
+<ul>
+  <li><strong>Training (gradient descent / L-BFGS):</strong> each iteration computes $Xβ$ and $X^\top(p-y)$, both $O(np)$; total $O(npT)$. Scales linearly in both $n$ and $p$, which suits large, wide data.</li>
+  <li><strong>Training (Newton/IRLS):</strong> $O(np^2+p^3)$ per iteration (form and solve the weighted normal equations), few iterations. Suitable when $p$ is small or moderate; the $p^3$ term dominates for large $p$.</li>
+  <li><strong>Prediction:</strong> $O(p)$ per example: one dot product and a sigmoid. Cheap enough for low-latency serving.</li>
+  <li><strong>Memory:</strong> $O(np)$ for the data; $O(p)$ for the model. Newton adds $O(p^2)$ for the Hessian.</li>
+</ul>
+<p><strong>Scalability:</strong> among the most scalable classifiers. For large $n$, SGD or the <code>saga</code> solver streams through data; for huge $p$, prefer first-order/coordinate methods over Newton.</p>
+
+<h2 id="s13">13. Data Preparation</h2>
+<ul>
+  <li><strong>Feature scaling:</strong> not required for <em>correctness</em> of unregularised logistic regression (rescaling a feature just rescales its coefficient), but required when you regularise (the penalty is scale-sensitive) and strongly recommended for gradient/L-BFGS convergence. Standardise (zero mean, unit variance) by default.</li>
+  <li><strong>Categorical variables:</strong> one-hot encode (drop one level to avoid collinearity with the intercept). High-cardinality categoricals may need target/frequency encoding or a different model.</li>
+  <li><strong>Nonlinearity:</strong> add polynomial terms, splines, or interactions to capture curved boundaries; the model only sees the features you give it.</li>
+  <li><strong>Missing values:</strong> impute (and consider missingness indicators); logistic regression needs complete cases.</li>
+  <li><strong>Outliers:</strong> far less catastrophic than in OLS because the sigmoid saturates: an extreme $x$ pins $p$ near 0 or 1, whereas in a squared-error fit it would pull the line towards itself. Still worth checking, as extreme values can influence the boundary.</li>
+  <li><strong>Class imbalance:</strong> with a rare positive class, use <code>class_weight='balanced'</code>, resampling (SMOTE/undersampling), or, often best, leave the probabilities alone and move the decision threshold. Accuracy is meaningless under heavy imbalance (§14).</li>
+  <li><strong>Multicollinearity:</strong> inflates coefficient variance and destabilises signs (as in OLS); check VIFs and regularise or drop redundant features.</li>
+</ul>
+
+<h2 id="s14">14. Evaluation</h2>
+
+<p>Logistic regression outputs <em>probabilities</em>, so evaluate both the ranking/classification and the probability quality.</p>
+<ul>
+  <li><strong>Accuracy:</strong> fraction correct at a chosen threshold. Misleading under imbalance: predicting "all negative" scores 99% accuracy if positives are 1%.</li>
+  <li><strong>Precision, recall, F1:</strong> precision $=\frac{TP}{TP+FP}$ (of predicted positives, how many are right), recall $=\frac{TP}{TP+FN}$ (of actual positives, how many caught), F1 their harmonic mean. Report these under imbalance and choose by the cost trade-off.</li>
+  <li><strong>ROC-AUC:</strong> probability a random positive is ranked above a random negative; threshold-independent measure of ranking. Can look optimistic under heavy imbalance.</li>
+  <li><strong>PR-AUC:</strong> area under precision–recall; more informative than ROC-AUC when positives are rare.</li>
+  <li><strong>Log-loss (cross-entropy):</strong> the model's own training objective; rewards calibrated, confident-and-correct probabilities and punishes confident errors. The most faithful single number for a probabilistic classifier.</li>
+  <li><strong>Brier score:</strong> mean squared error of the predicted probabilities, a proper scoring rule complementary to log-loss.</li>
+  <li><strong>Calibration:</strong> agreement between predicted probabilities and observed frequencies, assessed with a reliability diagram (§16). Logistic regression tends to be well calibrated: with an intercept, the score equations $X^\top(y-p)=0$ force the mean predicted probability to equal the observed positive rate, and the same balance holds along each feature. SVM scores and naive Bayes probabilities have no such property.</li>
+</ul>
+<p><strong>Why metrics mislead:</strong> a high accuracy hides poor minority-class recall; a high ROC-AUC can coexist with badly miscalibrated probabilities; a good threshold on the training set may be wrong on new data. Match the metric to the decision the model will drive.</p>
+
+<h2 id="s15">15. Validation Strategy</h2>
+<ul>
+  <li><strong>Stratified $k$-fold cross-validation:</strong> the default; stratification preserves the class ratio in each fold, essential when positives are scarce.</li>
+  <li><strong>Train/validation/test split</strong> for large data; keep a final untouched test set for the honest estimate.</li>
+  <li><strong>Nested CV</strong> when tuning $C$/penalty <em>and</em> reporting generalisation, to avoid optimistic bias from selecting on the same data.</li>
+  <li><strong>Grouped CV</strong> when rows cluster (multiple records per customer/patient): keep groups intact.</li>
+  <li><strong>Time-aware validation</strong> for temporal data (e.g. credit default): train on past, validate on future; never shuffle across time.</li>
+</ul>
+<p><strong>Leakage risks:</strong> fit scaling, imputation, encoding, and feature selection <em>inside</em> each fold via a <code>Pipeline</code>. A subtle one specific to classification: choosing the decision threshold or calibrating probabilities on the test set. Do it on validation data only.</p>
+
+<h2 id="s16">16. Diagnostics</h2>
+<ul>
+  <li><strong>Calibration / reliability plot:</strong> bin predictions by predicted probability, plot observed frequency vs mean predicted probability; the diagonal is perfect calibration. Systematic deviation signals miscalibration (over/under-confidence).</li>
+  <li><strong>Confusion matrix</strong> at the operating threshold: reveals whether errors are false positives or false negatives.</li>
+  <li><strong>ROC and PR curves</strong>: visualise the full threshold trade-off and choose the operating point.</li>
+  <li><strong>Coefficient table with SEs / odds ratios and CIs</strong>: for interpretation and sanity checks (implausible signs suggest collinearity or leakage).</li>
+  <li><strong>Deviance residuals</strong>: the logistic analogue of OLS residuals; patterns against a feature indicate missing nonlinearity.</li>
+  <li><strong>Separation check</strong>: huge coefficients with huge SEs, or a non-converging solver, flag (quasi-)perfect separation.</li>
+  <li><strong>Learning curves</strong>: train vs validation log-loss against $n$ to distinguish bias from variance.</li>
+  <li><strong>VIF / correlation matrix</strong>: detect multicollinearity.</li>
+  <li><strong>Feature effects</strong>: partial dependence, or plotting $\sigma(x^\top\beta)$ against a feature to communicate its influence.</li>
+</ul>
+
+<h2 id="s17">17. Strengths</h2>
+<ul>
+  <li><strong>Well-calibrated probabilities.</strong> Because it maximises the Bernoulli likelihood, its outputs can be used directly as probabilities for ranking, thresholding and expected-value decisions; raw SVM scores cannot.</li>
+  <li><strong>Interpretability.</strong> $e^{\beta_j}$ is an odds ratio: an interpretable effect size with a confidence interval.</li>
+  <li><strong>Convex objective.</strong> A single global optimum, reliably found; results are reproducible and stable, with no initialisation lottery.</li>
+  <li><strong>Cheap and scalable.</strong> $O(np)$ per gradient step, $O(p)$ prediction; trains on huge data and serves at low latency.</li>
+  <li><strong>Statistical inference available.</strong> Wald/LR tests, SEs, and CIs via Fisher information; few ML classifiers offer this.</li>
+  <li><strong>Naturally regularisable.</strong> $\ell_1/\ell_2$ slot in cleanly, giving feature selection and separation control with the same convex machinery.</li>
+  <li><strong>Strong, honest baseline.</strong> Hard to beat on linearly-structured tabular data; if a complex model can't beat it, that's informative.</li>
+</ul>
+
+<h2 id="s18">18. Weaknesses and Failure Modes</h2>
+<ul>
+  <li><strong>Linear decision boundary only.</strong> Without engineered features it cannot capture curved or interaction-driven boundaries. <em>Example:</em> the XOR pattern (positives in opposite quadrants) is unclassifiable by a plain logit; you must add an $x_1x_2$ term.</li>
+  <li><strong>Perfect separation blows up the MLE.</strong> If a feature (or combination) perfectly predicts the class, coefficients diverge to $\pm\infty$, SEs explode, and the solver fails. <em>Example:</em> a rare disease where every positive has a unique symptom absent in negatives. Fix: $\ell_2$ penalty or Firth's correction.</li>
+  <li><strong>High-dimensional / small-$n$ instability.</strong> When $p$ approaches $n$, unregularised estimates have very high variance; regularisation is necessary.</li>
+  <li><strong>Multicollinearity.</strong> Correlated predictors give unstable, uninterpretable coefficients (signs can flip) though predictions may still be fine.</li>
+  <li><strong>Sensitive to feature misspecification.</strong> If the true log-odds are nonlinear in a feature and you model it as linear, the fit is biased and calibration suffers.</li>
+  <li><strong>Class imbalance.</strong> With rare positives the intercept dominates and the model predicts near-base-rate; needs class weighting/resampling and threshold tuning, and accuracy becomes uninformative.</li>
+  <li><strong>Independence assumption.</strong> Correlated observations (clustered/temporal) make the naive SEs too small, so inference is over-confident.</li>
+  <li><strong>Extrapolation.</strong> Like all linear models, predictions far outside the training range assume the log-odds trend continues, which may be false.</li>
+</ul>
+
+<h2 id="s19">19. Comparison With Related Algorithms</h2>
+
+<table>
+<thead>
+<tr><th>Aspect</th><th>Logistic Regression</th><th>Linear (OLS) Regression</th><th>Linear SVM</th><th>LDA / Gaussian NB</th></tr>
+</thead>
+<tbody>
+<tr><td>Target</td><td>binary label</td><td>continuous</td><td>binary label</td><td>binary/multiclass</td></tr>
+<tr><td>Type</td><td>discriminative, probabilistic</td><td>regression</td><td>discriminative, margin</td><td>generative</td></tr>
+<tr><td>Loss</td><td>cross-entropy (log-loss)</td><td>squared error</td><td>hinge loss</td><td>class-conditional likelihood</td></tr>
+<tr><td>Outputs probabilities?</td><td>yes, calibrated</td><td>n/a</td><td>no (needs Platt scaling)</td><td>yes (model-based)</td></tr>
+<tr><td>Boundary</td><td>linear (hyperplane)</td><td>—</td><td>linear (max-margin)</td><td>linear (LDA)</td></tr>
+<tr><td>Optimisation</td><td>convex, iterative</td><td>closed form</td><td>convex QP</td><td>closed form</td></tr>
+</tbody>
+</table>
+
+<p><strong>vs Linear Regression:</strong> same linear predictor $x^\top\beta$; logistic wraps it in a sigmoid and swaps the Gaussian likelihood for Bernoulli. Never use OLS on 0/1 labels (unbounded, heteroscedastic).</p>
+
+<p><strong>vs Linear SVM:</strong> both are linear discriminative classifiers with convex objectives. Logistic uses log-loss (every point contributes, probabilities are calibrated); SVM uses hinge loss (only margin-violating support vectors matter, outputs are uncalibrated scores). Logistic is preferred when you need probabilities; SVM can be more robust to outliers far from the boundary and pairs naturally with kernels for nonlinearity. Their fitted boundaries are often similar on nearly separable data.</p>
+
+<p><strong>vs Naive Bayes / LDA (generative):</strong> logistic is <em>discriminative</em>: it models $P(y\mid x)$ directly, making fewer assumptions about the feature distribution, and generally wins with enough data. Generative models (<span class="plain-ref" title="Lecture 4 is released in Week 4">coming in Week 4</span>) can win in the small-data regime because they borrow strength from stronger distributional assumptions. Ng and Jordan (2002) analysed this pair: with variances shared across classes, Gaussian naive Bayes and logistic regression have the same functional form for $P(y\mid x)$ but estimate its parameters differently. Naive Bayes approaches its asymptotic error with fewer observations, but logistic regression's asymptotic error is lower, so it tends to win once data are plentiful.</p>
+
+<p><strong>vs Trees / GBMs / Neural nets:</strong> those capture nonlinearity and interactions automatically at the cost of interpretability and, for neural networks, calibration and data requirements. Adding a hidden layer to logistic regression gives a neural network, in which the logistic unit is the basic building block.</p>
+
+<h2 id="s20">20. When I Should Use It</h2>
+
+<p><strong>Use logistic regression when:</strong></p>
+<ul>
+  <li>You need probabilities as well as labels (risk scores, expected-value decisions).</li>
+  <li>You need interpretable effects (odds ratios) and possibly formal inference: regulated domains, science, medicine.</li>
+  <li>The decision boundary is plausibly linear in your (possibly engineered) features.</li>
+  <li>Data are limited, or you want a fast and reproducible baseline.</li>
+  <li>You need cheap, low-latency prediction at scale.</li>
+  <li>Class imbalance is manageable via weighting/threshold tuning.</li>
+</ul>
+
+<p><strong>Avoid (or augment) logistic regression when:</strong></p>
+<ul>
+  <li>The boundary is strongly nonlinear with unknown form and you can't feature-engineer it → trees, GBMs, kernels, or nets.</li>
+  <li>There are many high-order interactions you can't specify by hand.</li>
+  <li>Data are (quasi-)perfectly separable and you cannot/should not regularise (then estimates are unstable; at minimum add a penalty).</li>
+  <li>Features are extremely high-dimensional and sparse with complex structure (text/images) where specialised models excel, although regularised logistic regression remains a strong text baseline.</li>
+</ul>
+
+<h2 id="s21">21. Python Implementation From Scratch</h2>
+
+<pre><code>import numpy as np
+
+def sigmoid(z):
+    # Numerically stable sigmoid: avoid overflow in exp for large |z|.
+    out = np.empty_like(z, dtype=float)
+    pos = z &gt;= 0
+    out[pos]  = 1.0 / (1.0 + np.exp(-z[pos]))
+    ez = np.exp(z[~pos])
+    out[~pos] = ez / (1.0 + ez)
+    return out
+
+class LogisticRegressionScratch:
+    """Binary logistic regression via gradient descent with optional L2."""
+
+    def __init__(self, lr=0.1, n_iter=5000, l2=0.0, fit_intercept=True):
+        self.lr = lr                # learning rate η
+        self.n_iter = n_iter
+        self.l2 = l2                # λ (0 = no regularisation)
+        self.fit_intercept = fit_intercept
+        self.beta_ = None
+
+    def _design(self, X):
+        if self.fit_intercept:
+            return np.hstack([np.ones((X.shape[0], 1)), X])
+        return X
+
+    def fit(self, X, y):
+        Xd = self._design(np.asarray(X, float))
+        y  = np.asarray(y, float).ravel()
+        n, k = Xd.shape
+        self.beta_ = np.zeros(k)                       # convex ⇒ zero init is fine
+
+        for _ in range(self.n_iter):
+            p = sigmoid(Xd @ self.beta_)               # predicted probabilities
+            # Gradient of the (mean) negative log-likelihood:  (1/n) Xᵀ(p − y)
+            grad = Xd.T @ (p - y) / n
+            if self.l2:                                # do not penalise intercept
+                reg = self.l2 * self.beta_
+                reg[0] = 0.0
+                grad = grad + reg / n
+            self.beta_ -= self.lr * grad               # descend the convex bowl
+        return self
+
+    def predict_proba(self, X):
+        return sigmoid(self._design(np.asarray(X, float)) @ self.beta_)
+
+    def predict(self, X, threshold=0.5):
+        return (self.predict_proba(X) &gt;= threshold).astype(int)
+
+# --- demo on the worked example -----------------------------------
+X = np.array([[1], [2], [3], [4]], float)
+y = np.array([0, 0, 1, 1])
+
+# With L2 the separable data yields finite coefficients; without it, β₁ grows large.
+model = LogisticRegressionScratch(lr=0.5, n_iter=20000, l2=1.0).fit(X, y)
+print("beta      :", model.beta_)
+print("proba     :", model.predict_proba(X).round(3))
+print("odds ratio:", np.exp(model.beta_[1]))    # e^{β₁}: multiplicative effect per hour</code></pre>
+
+<p><strong>Correspondence to the maths.</strong></p>
+<ul>
+  <li><code>sigmoid</code> implements $\sigma(z)$ from §3, split by sign to avoid <code>exp</code> overflow (a real production concern).</li>
+  <li><code>Xd.T @ (p - y) / n</code> is $\frac1n X^\top(p-y)$, the gradient derived in §4.3, the feature matrix times the residual.</li>
+  <li>The intercept is excluded from the penalty (<code>reg[0]=0</code>), matching the convention in §3.</li>
+  <li><code>np.exp(beta_[1])</code> converts a coefficient to an odds ratio (§8).</li>
+</ul>
+
+<h2 id="s22">22. Production Python Implementation</h2>
+
+<pre><code>import numpy as np
+import pandas as pd
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedKFold, cross_val_predict, GridSearchCV
+from sklearn.metrics import (roc_auc_score, average_precision_score,
+                             log_loss, classification_report)
+from sklearn.calibration import calibration_curve
+import statsmodels.api as sm
+
+# ---- 1. scikit-learn: prediction-focused, leak-free pipeline ----
+num = ["age", "income", "balance"]
+cat = ["job", "housing"]
+
+pre = ColumnTransformer([
+    ("num", StandardScaler(), num),                              # scale for the L2 penalty
+    ("cat", OneHotEncoder(drop="first", handle_unknown="ignore"), cat),
+])
+
+pipe = Pipeline([
+    ("prep", pre),
+    ("clf", LogisticRegression(solver="lbfgs", class_weight="balanced",
+                               max_iter=1000)),   # L2 is the default (l1_ratio=0)
+])
+
+# Tune C (inverse regularisation) by cross-validated log-loss.
+grid = GridSearchCV(
+    pipe, {"clf__C": np.logspace(-3, 3, 13)},
+    scoring="neg_log_loss",
+    cv=StratifiedKFold(5, shuffle=True, random_state=0),
+)
+grid.fit(df[num + cat], df["y"])
+print("best C:", grid.best_params_["clf__C"])
+
+# Honest out-of-fold probabilities for evaluation and calibration.
+proba = cross_val_predict(grid.best_estimator_, df[num + cat], df["y"],
+                          cv=StratifiedKFold(5, shuffle=True, random_state=1),
+                          method="predict_proba")[:, 1]
+print("ROC-AUC :", roc_auc_score(df["y"], proba))
+print("PR-AUC  :", average_precision_score(df["y"], proba))
+print("log-loss:", log_loss(df["y"], proba))
+frac_pos, mean_pred = calibration_curve(df["y"], proba, n_bins=10)  # reliability diagram
+
+# ---- 2. statsmodels: inference-focused (odds ratios, SEs, p-values) ----
+X_sm = sm.add_constant(df[num])            # explicit intercept
+logit = sm.Logit(df["y"], X_sm).fit()      # Newton/IRLS by default
+print(logit.summary())                     # coeffs, SEs, z, p, pseudo-R²
+odds_ratios = np.exp(logit.params)         # multiplicative effects
+ci = np.exp(logit.conf_int())              # CIs for the odds ratios
+print(pd.concat([odds_ratios.rename("OR"), ci], axis=1))</code></pre>
+
+<p><strong>When to use which:</strong> scikit-learn for prediction, pipelines, tuning, calibration, and deployment; statsmodels for the inferential coefficient table (odds ratios, Wald $z$, $p$-values, likelihood-ratio and pseudo-$R^2$). scikit-learn regularises by default ($\ell_2$ with $C=1$), which is why it does not report classical $p$-values: the standard asymptotic inference does not apply to the penalised estimate.</p>
+
+<h2 id="s23">23. Library Parameters Mapped to Mathematics</h2>
+
+<p><strong><code>sklearn.linear_model.LogisticRegression</code></strong></p>
+<ul>
+  <li><code>C</code>: <em>inverse</em> regularisation strength, $C=1/\lambda$. The objective is $C\sum_i \text{logloss}_i + \frac12\|\beta\|^2$ (for $\ell_2$). Large $C$ → weak penalty, larger coefficients, lower bias/higher variance (§10, §11); small $C$ → strong shrinkage. The single most important knob.</li>
+  <li><code>l1_ratio</code>: the penalty type, which sets the shape of the constraint region. <code>0</code> gives $\ell_2$ (smooth shrinkage, stabilises separation; the default), <code>1</code> gives $\ell_1$ (sparsity and feature selection, the diamond geometry), and values in between give the elastic net. An unpenalised fit (pure MLE; beware separation) is <code>C=np.inf</code>. Before scikit-learn 1.8 these were set with <code>penalty='l2'</code>, <code>'l1'</code>, <code>'elasticnet'</code> or <code>None</code>; that argument is deprecated and will be removed in 1.10.</li>
+  <li><code>solver</code>, the optimiser: <code>'lbfgs'</code>/<code>'newton-cg'</code> (quasi-Newton and Newton methods, $\ell_2$ only), <code>'liblinear'</code> (coordinate descent, good for $\ell_1$ and small data), <code>'saga'</code> (stochastic, scales to large $n$, supports elastic-net). Purely numerical: same estimator, different route (and separation behaviour).</li>
+  <li><code>class_weight</code>: reweights each class's contribution to the loss; <code>'balanced'</code> uses inverse frequencies, effectively multiplying the minority class's log-loss terms so the gradient $X^\top(p-y)$ pays it more attention (§13).</li>
+  <li><code>fit_intercept</code>: whether $\beta_0$ is included (the constant column); the intercept absorbs the base log-odds and is not penalised.</li>
+  <li><code>max_iter</code>, <code>tol</code>: iteration cap and convergence tolerance for the iterative solver; raise <code>max_iter</code> on convergence warnings (often a sign of poor scaling or separation).</li>
+  <li>Multiclass problems: scikit-learn fits the multinomial (softmax cross-entropy) model directly. The <code>multi_class</code> argument that chose between one-vs-rest and multinomial was deprecated in 1.5 and is absent from 1.8; one-vs-rest remains available through <code>OneVsRestClassifier</code>.</li>
+</ul>
+
+<p><strong><code>statsmodels.Logit</code></strong></p>
+<ul>
+  <li><code>.fit(method='newton')</code>: IRLS/Newton (§4.5), returning the Fisher-information covariance for SEs.</li>
+  <li><code>.fit_regularized(alpha=..., L1_wt=...)</code>: penalised MLE; <code>alpha</code> is $\lambda$, <code>L1_wt</code> mixes $\ell_1$/$\ell_2$.</li>
+  <li><code>.params</code> are log-odds coefficients; <code>np.exp(.params)</code> are odds ratios (§8).</li>
+</ul>
+
+<h2 id="s24">24. Common Interview Questions</h2>
+
+<p><strong>1. Why can't we use linear regression for binary classification?</strong><br>
+Its outputs are unbounded (giving impossible probabilities outside $[0,1]$), the Bernoulli errors are heteroscedastic ($\operatorname{Var}=p(1-p)$) violating OLS assumptions, and it forces a constant marginal effect on probability. The logit link fixes all three by modelling log-odds linearly.</p>
+
+<p><strong>2. Derive the logistic-regression gradient and explain why its form matters.</strong><br>
+$\nabla_\beta\ell=\sum_i(y_i-p_i)x_i=X^\top(y-p)$. The chain rule's $\sigma'=\,p(1-p)$ cancels the $1/[p(1-p)]$ from the log-likelihood derivative, leaving the clean "features times residual" form, identical in structure to OLS, which is why a logistic unit backprops trivially.</p>
+
+<p><strong>3. Is the logistic loss convex? Prove it and say why it matters.</strong><br>
+The Hessian is $-X^\top S X$ with $S=\operatorname{diag}(p_i(1-p_i))\succeq0$, so the negative log-likelihood has PSD Hessian → convex. It matters because gradient methods reach the global optimum regardless of initialisation; there are no bad local minima.</p>
+
+<p><strong>4. Interpret a coefficient of $\beta_j=1.1$.</strong><br>
+A one-unit increase in $x_j$ adds $1.1$ to the log-odds, multiplying the odds by $e^{1.1}\approx3.0$, roughly tripling the odds of the positive class, holding other features fixed. It does <em>not</em> mean the probability triples.</p>
+
+<p><strong>5. What is perfect separation and how do you handle it?</strong><br>
+When a hyperplane perfectly splits the classes, the likelihood increases without bound as $\|\beta\|\to\infty$; there is no finite MLE, so solvers diverge and SEs explode. Fix with $\ell_2$ regularisation (restores a unique finite optimum) or Firth's penalised likelihood.</p>
+
+<p><strong>6. Logistic regression vs linear SVM: when do you prefer each?</strong><br>
+Prefer logistic when you need calibrated probabilities or interpretable odds ratios (log-loss uses all points). Prefer SVM (hinge loss) when you only need the boundary, want robustness to points far from it, or plan to kernelise for nonlinearity. Their linear boundaries are often similar.</p>
+
+<p><strong>7. Your model has 99% accuracy but is useless. What happened and what do you do?</strong><br>
+Almost certainly severe class imbalance: predicting the majority class scores high accuracy. Switch to precision/recall/F1, PR-AUC, and log-loss; use class weighting or resampling; and set the decision threshold from the cost trade-off; the default of 0.5 is rarely appropriate.</p>
+
+<p><strong>8. Why standardise features, and is it ever unnecessary?</strong><br>
+Necessary for regularised logistic regression (the penalty is scale-dependent) and for stable/fast gradient convergence. For <em>unregularised</em> MLE it doesn't change the fitted probabilities (rescaling a feature just rescales its coefficient), so it's optional for correctness there, though still helpful numerically.</p>
+
+<p><strong>9. How does logistic regression relate to a neural network?</strong><br>
+It <em>is</em> a single neuron: an affine map $x^\top\beta$ followed by a sigmoid, trained with cross-entropy by gradient descent. Stack such units with hidden layers and nonlinearities and you get an MLP; the softmax output layer of a classifier net is multinomial logistic regression.</p>
+
+<p><strong>10. Is logistic regression well-calibrated, and why?</strong><br>
+Typically yes, because it directly maximises the Bernoulli likelihood, which is a proper scoring rule minimised at the true conditional probabilities. Under model misspecification or heavy regularisation calibration can degrade; check with a reliability diagram and, if needed, apply Platt/isotonic calibration.</p>
+
+<p><strong>11. (Debugging) Coefficients are enormous with huge standard errors. Diagnose.</strong><br>
+Likely (quasi-)perfect separation or severe multicollinearity. Check separability (does some feature perfectly split classes?), inspect VIFs, add $\ell_2$ regularisation, and verify the solver converged (raise <code>max_iter</code>, scale features).</p>
+
+<p><strong>12. Derive the decision boundary and explain its shape.</strong><br>
+Classify positive when $\sigma(x^\top\beta)\ge0.5\Leftrightarrow x^\top\beta\ge0$. The set $x^\top\beta=0$ is a hyperplane with normal $\beta_{1:p}$; hence a linear boundary. Adding polynomial/interaction features makes it curved in the original space while staying linear in the expanded space.</p>
+
+<h2 id="s25">25. Common Misconceptions</h2>
+<ol>
+  <li><strong>"Logistic regression is a regression algorithm."</strong> The name refers to the regression of <em>log-odds</em> on features; it is used for <em>classification</em>. Its output is a probability, thresholded to a label.</li>
+  <li><strong>"The coefficients give the change in probability."</strong> They give the change in <em>log-odds</em>; the effect on probability is nonlinear (largest near $p=0.5$, negligible near $0$ or $1$). Exponentiating gives an odds ratio, still not a probability change.</li>
+  <li><strong>"The 0.5 threshold is fixed/optimal."</strong> It's an arbitrary default. The optimal threshold depends on class balance and the relative cost of false positives vs false negatives, and should be chosen from a validation ROC/PR curve.</li>
+  <li><strong>"Because the boundary is linear, the model is linear in $x$."</strong> The probability is a nonlinear (sigmoid) function of $x$; only the log-odds and the boundary are linear. And with engineered features the boundary itself can be highly nonlinear.</li>
+  <li><strong>"More features / bigger coefficients always mean a better fit."</strong> Unregularised logistic regression will happily drive coefficients to infinity under separation, giving a perfect training fit and poor generalisation. Regularisation and honest validation are essential.</li>
+  <li><strong>"A high AUC means good probabilities."</strong> AUC measures <em>ranking</em>, not calibration; a model can rank perfectly yet output systematically mis-scaled probabilities. Check calibration separately.</li>
+</ol>
+
+<h2 id="s26">26. Exercises</h2>
+
+<h3>Level 1: Conceptual</h3>
+<ol>
+  <li>Explain in your own words why it is the log-odds, and not the probability, that is modelled as a linear function of $x$.</li>
+  <li>Give two reasons the linear probability model (OLS on 0/1 labels) is inappropriate.</li>
+  <li>A coefficient's odds ratio is $0.5$. Interpret it in plain language.</li>
+  <li>Why is logistic regression usually well-calibrated while a linear SVM is not?</li>
+  <li>Describe a scenario where accuracy is a misleading metric and name two metrics you'd use instead.</li>
+</ol>
+
+<h3>Level 2: Mathematical</h3>
+<ol>
+  <li>Starting from $\log\frac{p}{1-p}=\eta$, derive $p=\sigma(\eta)$ and show $\sigma'(\eta)=\sigma(\eta)(1-\sigma(\eta))$.</li>
+  <li>Derive the gradient $\nabla_\beta\ell=X^\top(y-p)$ from the Bernoulli log-likelihood, showing the cancellation explicitly.</li>
+  <li>Derive the Hessian $-X^\top S X$ and prove the loss is convex.</li>
+  <li>Write down one Newton/IRLS update and explain why it is a weighted least-squares solve, identifying the weights.</li>
+  <li>For $\beta=(\beta_0,\beta_1)=(-1,2)$ and $x=(1,1.5)$, compute $\eta$, $p$, and the contribution $(y-p)x$ to the gradient if the true label is $y=0$.</li>
+</ol>
+
+<h3>Level 3: Applied</h3>
+<ol>
+  <li>Implement logistic regression from scratch with $\ell_2$ regularisation and verify on a separable dataset that the penalty keeps coefficients finite (compare $\lambda=0$ vs $\lambda&gt;0$).</li>
+  <li>On an imbalanced dataset, compare accuracy, F1, ROC-AUC, and PR-AUC, and show how tuning the threshold changes the precision/recall trade-off.</li>
+  <li>Fit logistic regression with and without polynomial/interaction features on a nonlinearly-separable dataset (e.g. two moons); visualise the decision boundaries.</li>
+  <li>Produce a reliability diagram for a fitted model and, if miscalibrated, apply isotonic or Platt calibration and re-check.</li>
+  <li>Use <code>statsmodels</code> to fit a logit model, report odds ratios with 95% CIs, and interpret the two most influential predictors.</li>
+</ol>
+
+<h2 id="s26s">26(s). Solutions</h2>
+
+<h3>Level 1</h3>
+<ol>
+  <li>Probabilities live in $[0,1]$ but a linear predictor ranges over all of $\mathbb{R}$; the log-odds also range over all of $\mathbb{R}$, so equating log-odds to a linear function matches the ranges and guarantees valid probabilities after inverting through the sigmoid.</li>
+  <li>Unbounded predictions (impossible probabilities) and heteroscedastic Bernoulli errors that invalidate OLS inference (also: constant marginal effect on probability is implausible).</li>
+  <li>Each one-unit increase in the feature multiplies the odds of the positive class by $0.5$: it halves the odds, i.e. is protective/negatively associated.</li>
+  <li>Logistic regression maximises the Bernoulli likelihood (a proper scoring rule), which is minimised at the true probabilities, so its outputs behave like probabilities; SVM minimises hinge loss, which targets the margin, not probability, so its scores need post-hoc calibration.</li>
+  <li>Heavy class imbalance (e.g. 1% fraud): "predict all negative" gives 99% accuracy but zero recall. Use precision/recall/F1 and PR-AUC (and log-loss).</li>
+</ol>
+
+<h3>Level 2</h3>
+<ol>
+  <li>$e^{\eta}=\frac{p}{1-p}\Rightarrow p=\frac{e^\eta}{1+e^\eta}=\frac{1}{1+e^{-\eta}}$. Then $\sigma'(\eta)=\frac{e^{-\eta}}{(1+e^{-\eta})^2}=\sigma(\eta)\cdot\frac{e^{-\eta}}{1+e^{-\eta}}=\sigma(\eta)(1-\sigma(\eta))$.</li>
+  <li>$\frac{\partial\ell_i}{\partial p_i}=\frac{y_i-p_i}{p_i(1-p_i)}$; $\frac{\partial p_i}{\partial\eta_i}=p_i(1-p_i)$; $\frac{\partial\eta_i}{\partial\beta}=x_i$. Product: $\frac{y_i-p_i}{p_i(1-p_i)}\cdot p_i(1-p_i)\cdot x_i=(y_i-p_i)x_i$; sum $=X^\top(y-p)$.</li>
+  <li>$\nabla^2\ell=\frac{\partial}{\partial\beta}\sum_i(y_i-p_i)x_i=-\sum_i p_i(1-p_i)x_ix_i^\top=-X^\top SX$. For any $v$, $v^\top X^\top SXv=\sum_i p_i(1-p_i)(x_i^\top v)^2\ge0$, so $-\nabla^2\ell\succeq0$: the loss $-\ell$ is convex.</li>
+  <li>$\beta^{(t+1)}=\beta^{(t)}+(X^\top SX)^{-1}X^\top(y-p)$. Writing $z=X\beta^{(t)}+S^{-1}(y-p)$ (the "working response"), the update equals $(X^\top SX)^{-1}X^\top S z$, the weighted least-squares solution with weights $w_i=p_i(1-p_i)$, largest near $p=0.5$.</li>
+  <li>$\eta=-1+2(1.5)=2$; $p=\sigma(2)\approx0.8808$; with $y=0$, $(y-p)=-0.8808$, so the gradient contribution is $-0.8808\cdot(1,\,1.5)=(-0.8808,\,-1.3212)$, pushing both coefficients down to reduce the over-prediction.</li>
+</ol>
+
+<h3>Level 3</h3>
+<ol>
+  <li>With $\lambda=0$ on separable data, $\|\beta\|$ grows every iteration (no convergence, probabilities collapse to 0/1); with $\lambda&gt;0$ the objective $-\ell+\frac\lambda2\|\beta\|^2$ is strictly convex and coefficients settle at finite values.</li>
+  <li>Accuracy stays high and flat; F1/PR-AUC reveal the true minority-class performance; sweeping the threshold traces the precision–recall curve; lowering it raises recall and lowers precision. Pick the point matching your cost ratio.</li>
+  <li>Plain logistic gives a straight boundary that misclassifies the interleaved moons; adding polynomial/interaction features bends the boundary to separate them, at the cost of higher variance (regularise/validate).</li>
+  <li>Bin predictions and plot observed vs predicted frequency; if the curve sags away from the diagonal, isotonic/Platt calibration on a held-out set pulls it back towards the diagonal and lowers log-loss/Brier.</li>
+  <li>Report $e^{\hat\beta_j}$ and $\exp(\text{CI})$; the two predictors with ORs farthest from 1 (and CIs excluding 1) are the most influential. Interpret each as a multiplicative change in odds per unit feature.</li>
+</ol>
+
+<h2 id="s27">27. Summary Cheat Sheet: Logistic Regression</h2>
+
+<table>
+<thead><tr><th>Attribute</th><th>Summary</th></tr></thead>
+<tbody>
+<tr><td><strong>Problem type</strong></td><td>Supervised binary classification (probabilistic); softmax for multiclass</td></tr>
+<tr><td><strong>Model equation</strong></td><td>$P(y=1\mid x)=\sigma(x^\top\beta)=\dfrac{1}{1+e^{-x^\top\beta}}$</td></tr>
+<tr><td><strong>Loss / objective</strong></td><td>Binary cross-entropy = negative Bernoulli log-likelihood</td></tr>
+<tr><td><strong>Gradient</strong></td><td>$\nabla_\beta J=\frac1n X^\top(p-y)$ (features × residual)</td></tr>
+<tr><td><strong>Solution</strong></td><td>No closed form; convex → gradient descent / Newton–IRLS / L-BFGS</td></tr>
+<tr><td><strong>Key assumptions</strong></td><td>Log-odds linear in features, independent obs, no perfect separation/collinearity</td></tr>
+<tr><td><strong>Important hyperparameters</strong></td><td>$C=1/\lambda$, penalty ($\ell_1$/$\ell_2$/elastic-net), class_weight, threshold, solver</td></tr>
+<tr><td><strong>Scaling required?</strong></td><td>Yes for regularised fits & fast convergence; optional for plain MLE correctness</td></tr>
+<tr><td><strong>Handles nonlinearities?</strong></td><td>Only via engineered features (linear log-odds/boundary otherwise)</td></tr>
+<tr><td><strong>Handles categoricals?</strong></td><td>Via one-hot encoding (drop one level)</td></tr>
+<tr><td><strong>Interpretable?</strong></td><td>Highly: $e^{\beta_j}$ = odds ratio, with CIs and tests</td></tr>
+<tr><td><strong>Probabilities?</strong></td><td>Yes, typically well-calibrated (proper scoring rule)</td></tr>
+<tr><td><strong>Training cost</strong></td><td>$O(npT)$ (first-order) or $O((np^2+p^3)T)$ (Newton)</td></tr>
+<tr><td><strong>Prediction cost</strong></td><td>$O(p)$ per example</td></tr>
+<tr><td><strong>Main advantages</strong></td><td>Calibrated probabilities, interpretable, convex, cheap, inference available</td></tr>
+<tr><td><strong>Major weaknesses</strong></td><td>Linear boundary only, separation blow-up, imbalance sensitivity, needs feature engineering</td></tr>
+<tr><td><strong>Ideal use cases</strong></td><td>Risk scoring, credit/medical decisions, calibrated ranking, strong baselines</td></tr>
+</tbody>
+</table>
+
+<p><strong>Connections to carry forward:</strong> logistic regression is the bridge from <a href="../01-linear-regression/">Lecture 1</a> to the rest of the course. It keeps the linear predictor $x^\top\beta$ but swaps the Gaussian likelihood for Bernoulli, the first example of the <em>generalised linear model</em> pattern. Its gradient $X^\top(y-p)$ and cross-entropy loss are the building blocks of neural networks (<span class="plain-ref" title="Lecture 19 is released in Week 23">coming in Week 23</span>), where it becomes the output neuron; its softmax generalisation is every deep classifier's final layer. It also sets up the direct contrast with the maximum-margin approach of SVMs (<span class="plain-ref" title="Lecture 5 is released in Week 5">coming in Week 5</span>) and the generative alternative, naive Bayes (<span class="plain-ref" title="Lecture 4 is released in Week 4">coming in Week 4</span>). Maximum likelihood as a fitting principle and regularisation as complexity control both recur throughout the course.</p>
+</main>
+</div>
+</body>
+</html>
