@@ -29,3 +29,7 @@ Thumbs.db
 # Local drafts (newsletter editions) — never publish
 *.docx
 assets/image-1790705105625.png
+
+# Local working instructions for coding assistants (private)
+Claude.md
+CLAUDE.md
