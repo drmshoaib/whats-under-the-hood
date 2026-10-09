@@ -40,6 +40,8 @@ Each released lecture lives in its own directory:
 whats-under-the-hood/
 ├── 01-linear-regression/
 │   └── index.html
+├── 02-logistic-regression/
+│   └── index.html
 ├── assets/
 ├── index.html
 └── README.md
