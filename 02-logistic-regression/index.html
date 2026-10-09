@@ -476,7 +476,7 @@ Predict: p* = σ(x*ᵀβ);  label = 1 if p* ≥ threshold (default 0.5) else 0</
      p = σ(Xβ);  S = diag(p_i(1−p_i))
       P = diag(0,1,...,1)   # intercept unpenalised
       β ← β + solve(Xᵀ S X + nλP, Xᵀ(y − p) − nλPβ)  # penalised Newton
-3. return β; for a finite unregularised MLE, Cov(β) ≈ (Xᵀ S X)⁻¹
+3. return β; for a finite unregularised MLE, Cov(β) ≈ (Xᵀ S X)⁻¹</code></pre>
 
 <p><strong>Stopping criteria:</strong> gradient norm below tolerance, change in loss below tolerance, or a max-iteration cap. <strong>Outputs:</strong> the coefficient vector $\hat\beta$; predicted probabilities; optionally the covariance of $\hat\beta$ (from the inverse Hessian) for inference.</p>
 
@@ -907,6 +907,7 @@ The Hessian is $-X^\top S X$ with $S=\operatorname{diag}(p_i(1-p_i))\succeq0$, s
 <p><strong>4. Interpret a coefficient of $\beta_j=1.1$.</strong><br>
 A one-unit increase in $x_j$ adds $1.1$ to the log-odds, multiplying the odds by $e^{1.1}\approx3.0$, roughly tripling the odds of the positive class, holding other features fixed. It does <em>not</em> mean the probability triples.</p>
 
+<p><strong>5. What is perfect separation and how do you handle it?</strong><br>
 <p><strong>5. What is perfect separation and how do you handle it?</strong><br>
 When a hyperplane perfectly splits the classes, the likelihood approaches its supremum of $1$ as $\|\beta\|\to\infty$; there is no finite MLE, so unregularised solvers fail to converge and standard errors are unreliable. Fix with $\ell_2$ regularisation or Firth's penalised likelihood.</p>
 
