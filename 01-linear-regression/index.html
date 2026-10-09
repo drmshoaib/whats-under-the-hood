@@ -380,12 +380,12 @@ $$
 $$ y = X\beta + \varepsilon, \qquad \mathbb{E}[\varepsilon \mid X] = 0, \quad \operatorname{Var}(\varepsilon \mid X) = \sigma^2 I_n. $$
 
 <p><strong>The loss (objective).</strong> The residual sum of squares:</p>
-$$ \text{RSS}(\beta) = \sum_{i=1}^n \big(y_i - x_i^\top \beta\big)^2 = \|y - X\beta\|_2^2 = (y - X\beta)^\top (y - X\beta). $$
+$$ \text{RSS}(\beta) = \sum_{i=1}^n \big(y_i - \tilde x_i^\top \beta\big)^2 = \|y - X\beta\|_2^2 = (y - X\beta)^\top (y - X\beta). $$
 
 <p>We seek $\hat\beta = \arg\min_\beta \text{RSS}(\beta)$.</p>
 
 <p><strong>Probabilistic form (likelihood).</strong> Under Gaussian noise, each observation has density</p>
-$$ p(y_i \mid x_i, \beta, \sigma^2) = \frac{1}{\sqrt{2\pi\sigma^2}} \exp\!\left(-\frac{(y_i - x_i^\top\beta)^2}{2\sigma^2}\right). $$
+$$ p(y_i \mid x_i, \beta, \sigma^2) = \frac{1}{\sqrt{2\pi\sigma^2}} \exp\!\left(-\frac{(y_i - \tilde x_i^\top\beta)^2}{2\sigma^2}\right). $$
 <p>By independence the <em>likelihood</em> is the product, and the <em>log-likelihood</em> is</p>
 $$ \ell(\beta, \sigma^2) = -\frac{n}{2}\log(2\pi\sigma^2) - \frac{1}{2\sigma^2}\sum_{i=1}^n (y_i - x_i^\top\beta)^2 = -\frac{n}{2}\log(2\pi\sigma^2) - \frac{\text{RSS}(\beta)}{2\sigma^2}. $$
 <p>Because only the last term depends on $\beta$, and it is $-\text{RSS}/(2\sigma^2)$, maximising $\ell$ over $\beta$ is the same as minimising RSS. Least squares $\equiv$ Gaussian MLE.</p>
@@ -603,7 +603,7 @@ $$ \hat\beta_j \pm t_{1-\alpha/2,\,n-p-1}\cdot \operatorname{SE}(\hat\beta_j). $
 
 <p><strong>Closed form.</strong> Because RSS is convex quadratic, the minimiser is the exact solution of the normal equations, with no iteration needed. Solve $X^\top X\,\hat\beta = X^\top y$ by Cholesky (fast, if well-conditioned), or fit via QR/SVD directly on $X$ (more stable). Cost is dominated by the factorisation (see §12).</p>
 
-<p><strong>When to iterate instead.</strong> For very large $n$ (rows don't fit in memory) or very large $p$, or online/streaming settings, use gradient methods. The gradient is $\nabla \text{RSS} = 2X^\top(X\beta - y)$.</p>
+<p><strong>When to iterate instead.</strong> For very large $n$ or $p$, or streaming settings, use gradient methods. The RSS gradient is $\nabla\text{RSS}=2X^\top(X\beta-y)$. The batch update below uses the half-RSS objective $\text{RSS}/2$, whose gradient is $X^\top(X\beta-y)$; rescaling the objective just rescales the learning rate.</p>
 
 <ul>
   <li><strong>Batch gradient descent:</strong> $\beta \leftarrow \beta - \eta\, X^\top(X\beta - y)$. Converges linearly; the rate depends on the condition number $\kappa(X^\top X)$; with ill-conditioned (correlated or unscaled) features it converges slowly, which is a practical reason to standardise features before gradient-based fitting.</li>
@@ -619,7 +619,7 @@ $$ \hat\beta_j \pm t_{1-\alpha/2,\,n-p-1}\cdot \operatorname{SE}(\hat\beta_j). $
 
 <p><strong>$\lambda$ (ridge/lasso regularisation strength).</strong></p>
 <ul>
-  <li><em>Mathematically:</em> the weight on the penalty $\lambda\|\beta\|^2$ (or $\|\beta\|_1$). Ridge shrinks the solution towards zero: $\hat\beta_{\text{ridge}} = (X^\top X + \lambda I)^{-1}X^\top y$.</li>
+  <li><em>Mathematically:</em> with an intercept, let $P=\operatorname{diag}(0,1,\ldots,1)$ to exclude it from the penalty. Ridge minimises $\|y-X\beta\|^2+\lambda\|\beta_{1:p}\|^2$, giving $\hat\beta_{\text{ridge}}=(X^\top X+\lambda P)^{-1}X^\top y$. For an intercept-free design, use $P=I$.</li>
   <li><em>Increasing $\lambda$:</em> stronger shrinkage → smaller coefficients → more bias, less variance; at $\lambda\to\infty$ all coefficients (except intercept) vanish.</li>
   <li><em>Decreasing $\lambda$:</em> approaches OLS → less bias, more variance; at $\lambda = 0$ you recover OLS.</li>
   <li><em>Computational cost:</em> negligible change (still one linear solve per $\lambda$); the cost is in the cross-validation search over $\lambda$.</li>
@@ -750,7 +750,7 @@ $$ \mathbb{E}\big[(y_0 - \hat f(x_0))^2\big] = \underbrace{\big(\mathbb{E}[\hat 
   <li><strong>Multicollinearity.</strong> When predictors are highly correlated, $X^\top X$ is near-singular; $(X^\top X)^{-1}$ has huge entries, so coefficient variances explode. <em>Example:</em> including both "height in cm" and "height in inches", each rounded to a whole number, so the two are almost but not exactly proportional. The coefficients become large, opposite-signed and unstable, though predictions may still be fine. (Without the rounding the columns would be exactly collinear and $X^\top X$ singular.) Regularisation or dropping a feature fixes it.</li>
   <li><strong>Extrapolation danger.</strong> The linear form is imposed globally; predicting far outside the training range assumes the line continues, which it usually doesn't.</li>
   <li><strong>Heteroscedasticity breaks inference.</strong> If error variance grows with $\hat y$, OLS point estimates stay unbiased but standard errors are wrong → invalid $p$-values and CIs. Fix with weighted least squares or robust (sandwich) standard errors.</li>
-  <li><strong>$p \geq n$ collapse.</strong> More features than observations makes $X^\top X$ singular, so the OLS solution is not unique. You <em>must</em> regularise (ridge always works because $X^\top X + \lambda I$ is invertible) or reduce dimensionality.</li>
+  <li><strong>$p \geq n$ collapse.</strong> More features than observations makes $X^\top X$ singular, so the OLS solution is not unique. You <em>must</em> regularise (ridge always works because $X^\top X + \lambda P$ is invertible) or reduce dimensionality.</li>
   <li><strong>Correlated errors.</strong> Time series / clustered data violate independence; naive OLS understates uncertainty.</li>
   <li><strong>Misleading $R^2$.</strong> A high $R^2$ on training data with structured residuals falsely signals a good model.</li>
 </ul>
@@ -765,7 +765,7 @@ $$ \mathbb{E}\big[(y_0 - \hat f(x_0))^2\big] = \underbrace{\big(\mathbb{E}[\hat 
 </thead>
 <tbody>
 <tr><td>Objective</td><td>$\|y-X\beta\|^2$</td><td>$+\ \lambda\|\beta\|_2^2$</td><td>$+\ \lambda\|\beta\|_1$</td></tr>
-<tr><td>Solution</td><td>$(X^\top X)^{-1}X^\top y$</td><td>$(X^\top X+\lambda I)^{-1}X^\top y$</td><td>no closed form (coordinate descent)</td></tr>
+<tr><td>Solution</td><td>$(X^\top X)^{-1}X^\top y$</td><td>$(X^\top X+\lambda P)^{-1}X^\top y$</td><td>no closed form (coordinate descent)</td></tr>
 <tr><td>Bias/variance</td><td>unbiased, high var possible</td><td>biased, lower var</td><td>biased, lower var</td></tr>
 <tr><td>Coefficients</td><td>can be large/unstable</td><td>shrunk toward 0, none exactly 0</td><td>some exactly 0 (sparse)</td></tr>
 <tr><td>Handles $p\ge n$</td><td>no (singular)</td><td>yes</td><td>yes</td></tr>
@@ -828,19 +828,20 @@ class LinearRegressionScratch:
         Xd = self._design(np.asarray(X, float))
         y  = np.asarray(y, float).ravel()
 
-        # Normal equations: (Xᵀ X) beta = Xᵀ y.
-        # np.linalg.lstsq solves this in a least-squares, numerically stable way
-        # (uses SVD internally), and works even if XᵀX is near-singular.
-        self.beta_, *_ = np.linalg.lstsq(Xd, y, rcond=None)
-
-        # Residuals and unbiased variance estimate: RSS / (n - #params).
-        resid = y - Xd @ self.beta_
+        # Solve least squares on X directly; avoid forming the Gram matrix.
+        # A full-rank design with n > k is required for classical standard errors.
+        self.beta_, _, rank, _ = np.linalg.lstsq(Xd, y, rcond=None)
         n, k = Xd.shape
-        self.sigma2_ = resid @ resid / (n - k)
+        if n <= k or rank < k:
+            raise ValueError("Classical OLS standard errors require n > k and full column rank")
 
-        # Cov(beta) = sigma^2 (XᵀX)^{-1}; gives standard errors on the diagonal.
-        XtX_inv = np.linalg.inv(Xd.T @ Xd)
-        self.cov_beta_ = self.sigma2_ * XtX_inv
+        resid = y - Xd @ self.beta_
+        self.sigma2_ = (resid @ resid) / (n - k)
+
+        # Compute Cov(beta) via SVD of X, avoiding inv(X.T @ X).
+        # If X = U diag(s) Vᵀ, then (XᵀX)⁻¹ = V diag(1/s²) Vᵀ.
+        _, singular, vt = np.linalg.svd(Xd, full_matrices=False)
+        self.cov_beta_ = self.sigma2_ * ((vt.T / singular**2) @ vt)
         return self
 
     def predict(self, X):
@@ -862,9 +863,9 @@ print("pred @ x=4:", model.predict([[4]]))  # 0.6667 + 4 = 4.6667</code></pre>
 <p><strong>Line-by-line correspondence to the maths.</strong></p>
 <ul>
   <li><code>_design</code> builds the augmented matrix $X$ from §3; the column of ones is the intercept term $\beta_0$.</li>
-  <li><code>np.linalg.lstsq(Xd, y)</code> solves the normal equations $X^\top X\hat\beta = X^\top y$ (§4.1) via SVD, the stable route from §5 (better than forming and inverting $X^\top X$).</li>
+  <li><code>np.linalg.lstsq(Xd, y)</code> solves least squares directly on $X$ rather than constructing the ill-conditioned normal-equations matrix (§5). It yields the same full-rank estimator in exact arithmetic.</li>
   <li><code>resid @ resid / (n - k)</code> is $\hat\sigma^2 = \text{RSS}/(n-p-1)$ (§4.4), with the degrees-of-freedom denominator.</li>
-  <li><code>self.sigma2_ * XtX_inv</code> is $\operatorname{Var}(\hat\beta) = \sigma^2(X^\top X)^{-1}$ (§4.3); its diagonal square-roots are the standard errors of §8.</li>
+  <li><code>self.sigma2_ * ((vt.T / singular**2) @ vt)</code> computes $\hat\sigma^2(X^\top X)^{-1}$ from the SVD without forming or inverting $X^\top X$; diagonal square-roots give the standard errors (§8).</li>
 </ul>
 
 <p><em>(Optional gradient-descent version, to expose the optimiser used later in the course:)</em></p>
@@ -874,7 +875,7 @@ print("pred @ x=4:", model.predict([[4]]))  # 0.6667 + 4 = 4.6667</code></pre>
     beta = np.zeros(Xd.shape[1])
     n = len(y)
     for _ in range(iters):
-        grad = (2/n) * Xd.T @ (Xd @ beta - y)   # ∇RSS = 2Xᵀ(Xβ − y)
+        grad = (2/n) * Xd.T @ (Xd @ beta - y)   # gradient of mean squared error
         beta -= eta * grad                       # descend the convex bowl
     return beta</code></pre>
 
@@ -936,8 +937,8 @@ ols_robust = sm.OLS(df["price"], X_sm).fit(cov_type="HC3")</code></pre>
 
 <p><strong><code>sklearn.linear_model.Ridge</code> / <code>RidgeCV</code></strong></p>
 <ul>
-  <li><code>alpha</code> (this is $\lambda$): the coefficient on the $\ell_2$ penalty in $\|y-X\beta\|^2 + \alpha\|\beta\|^2$. Increasing it strengthens the diagonal loading in $(X^\top X + \alpha I)^{-1}$: coefficients shrink towards zero, <em>variance falls, bias rises</em> (§10, §11). <code>alpha=0</code> recovers OLS. <code>RidgeCV(alphas=...)</code> searches this grid by CV.</li>
-  <li><code>solver</code>: <code>'cholesky'</code> solves the normal equations directly (fast, needs well-conditioned $X^\top X + \alpha I$); <code>'svd'</code> is most stable; <code>'sag'/'saga'</code> are stochastic solvers for large $n$. These are <em>numerical</em> choices; they compute the <em>same</em> estimator (§5).</li>
+  <li><code>alpha</code> (this is $\lambda$): the coefficient on the $\ell_2$ penalty in $\|y-X\beta\|^2 + \alpha\|\beta_{1:p}\|^2$. Increasing it strengthens the diagonal loading in $(X^\top X + \alpha P)^{-1}$: slope coefficients shrink towards zero, <em>variance falls, bias rises</em> (§10, §11). <code>alpha=0</code> recovers OLS. <code>RidgeCV(alphas=...)</code> searches this grid by CV.</li>
+  <li><code>solver</code>: <code>'cholesky'</code> solves the normal equations directly (fast, needs well-conditioned $X^\top X + \alpha P$); <code>'svd'</code> is most stable; <code>'sag'/'saga'</code> are stochastic solvers for large $n$. These are <em>numerical</em> choices; they compute the <em>same</em> estimator (§5).</li>
 </ul>
 
 <p><strong><code>sklearn.linear_model.Lasso</code> / <code>ElasticNet</code></strong></p>
@@ -979,7 +980,7 @@ $\log p(y\mid\beta)= \text{const} - \frac{1}{2\sigma^2}\text{RSS}(\beta)$. The o
 Overfitting (too many features / high-degree polynomial, small $n$), leakage, or in-sample $R^2$ measured on training data. $R^2$ always rises with more features; use adjusted $R^2$ and, above all, held-out/CV error.</p>
 
 <p><strong>9. When does OLS fail entirely, and what do you do?</strong><br>
-When $p\ge n$ or features are perfectly collinear, $X^\top X$ is singular → no unique inverse. Use ridge (always invertible: $X^\top X+\lambda I$), the pseudoinverse (min-norm solution), or reduce dimensionality (PCA, feature selection).</p>
+When $p\ge n$ or features are perfectly collinear, $X^\top X$ is singular → no unique inverse. Use ridge (always invertible: $X^\top X+\lambda P$), the pseudoinverse (min-norm solution), or reduce dimensionality (PCA, feature selection).</p>
 
 <p><strong>10. Why is ridge sometimes <em>better</em> than the "optimal" OLS?</strong><br>
 Gauss–Markov only optimises within unbiased estimators. Ridge accepts some bias for a large reduction in variance; when variance dominates the error (correlated/many features), the biased ridge estimate has lower total MSE.</p>
@@ -1017,7 +1018,7 @@ Replace squared loss with Huber loss (quadratic near zero, linear in the tails),
   <li>Starting from $\text{RSS}(\beta)=(y-X\beta)^\top(y-X\beta)$, derive the gradient and Hessian, and prove the solution is a global minimum when $X$ has full column rank.</li>
   <li>Show that the hat matrix $H=X(X^\top X)^{-1}X^\top$ is symmetric and idempotent, and prove $\operatorname{trace}(H)=p+1$.</li>
   <li>Derive $\operatorname{Var}(\hat\beta\mid X)=\sigma^2(X^\top X)^{-1}$ from $\hat\beta=\beta+(X^\top X)^{-1}X^\top\varepsilon$.</li>
-  <li>For the ridge estimator $\hat\beta_\lambda=(X^\top X+\lambda I)^{-1}X^\top y$, show that as $\lambda\to\infty$ the coefficients $\to 0$, and compute $\operatorname{Var}(\hat\beta_\lambda)$; argue why it is smaller than the OLS variance.</li>
+  <li>For ridge on a centred, <em>intercept-free</em> design, $hat\beta_\lambda=(X^\top X+\lambda I)^{-1}X^\top y$. Show that as $\lambda\to\infty$ the coefficients tend to zero; derive $\operatorname{Var}(\hat\beta_\lambda)$ and compare it with OLS. Explain how the unpenalised-intercept version instead uses $P$ from §10.</li>
   <li>Given the data $(0,1),(1,3),(2,3),(3,5)$, compute $\hat\beta_0,\hat\beta_1$, the residuals, RSS, and $R^2$ by hand.</li>
 </ol>
 
