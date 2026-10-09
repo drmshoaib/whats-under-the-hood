@@ -908,7 +908,6 @@ The Hessian is $-X^\top S X$ with $S=\operatorname{diag}(p_i(1-p_i))\succeq0$, s
 A one-unit increase in $x_j$ adds $1.1$ to the log-odds, multiplying the odds by $e^{1.1}\approx3.0$, roughly tripling the odds of the positive class, holding other features fixed. It does <em>not</em> mean the probability triples.</p>
 
 <p><strong>5. What is perfect separation and how do you handle it?</strong><br>
-<p><strong>5. What is perfect separation and how do you handle it?</strong><br>
 When a hyperplane perfectly splits the classes, the likelihood approaches its supremum of $1$ as $\|\beta\|\to\infty$; there is no finite MLE, so unregularised solvers fail to converge and standard errors are unreliable. Fix with $\ell_2$ regularisation or Firth's penalised likelihood.</p>
 
 <p><strong>6. Logistic regression vs linear SVM: when do you prefer each?</strong><br>
@@ -1011,7 +1010,7 @@ Classify positive when $\sigma(x^\top\beta)\ge0.5\Leftrightarrow x^\top\beta\ge0
 <tr><td><strong>Gradient</strong></td><td>$\nabla_\beta J=\frac1n X^\top(p-y)$ (features × residual)</td></tr>
 <tr><td><strong>Solution</strong></td><td>No closed form; convex → gradient descent / Newton–IRLS / L-BFGS</td></tr>
 <tr><td><strong>Key assumptions</strong></td><td>Log-odds linear in features, independent obs, no perfect separation/collinearity</td></tr>
-<tr><th>Important hyperparameters</th><td>Inverse penalty strength $C$ ($\lambda=1/(SC)$ for mean loss), penalty ($\ell_1$/$\ell_2$/elastic-net), <code>class_weight</code>, threshold, solver</td></tr>
+<tr><td><strong>Important hyperparameters</strong></td><td>Inverse penalty strength $C$ ($\lambda=1/(SC)$ for mean loss), penalty ($\ell_1$/$\ell_2$/elastic-net), <code>class_weight</code>, threshold, solver</td></tr>
 <tr><td><strong>Scaling required?</strong></td><td>Yes for regularised fits & fast convergence; optional for plain MLE correctness</td></tr>
 <tr><td><strong>Handles nonlinearities?</strong></td><td>Only via engineered features (linear log-odds/boundary otherwise)</td></tr>
 <tr><td><strong>Handles categoricals?</strong></td><td>Via one-hot encoding (drop one level)</td></tr>
