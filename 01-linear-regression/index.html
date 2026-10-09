@@ -810,7 +810,7 @@ $$ \mathbb{E}\big[(y_0 - \hat f(x_0))^2\big] = \underbrace{\big(\mathbb{E}[\hat 
 <pre><code>import numpy as np
 
 class LinearRegressionScratch:
-    """OLS via the normal equations, solved stably (no explicit inverse)."""
+    """OLS via a stable least-squares solve, with SVD-based standard errors."""
 
     def __init__(self, fit_intercept=True):
         self.fit_intercept = fit_intercept
