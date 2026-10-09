@@ -410,7 +410,7 @@ $$ \ell(\beta)=\sum_{i=1}^n\Big[\,y_i\log p_i+(1-y_i)\log(1-p_i)\,\Big]. $$
 <div class="box">
 $$ J(\beta)=-\frac{1}{n}\sum_{i=1}^n\Big[\,y_i\log p_i+(1-y_i)\log(1-p_i)\,\Big], \qquad p_i=\sigma(x_i^\top\beta). $$
 </div>
-<p>Cross-entropy and negative log-likelihood are the same object here, so "log-loss", "cross-entropy" and "maximum likelihood" name the same procedure.</p>
+<p>Mean cross-entropy equals negative log-likelihood divided by $n$. The positive scaling does not change the unregularised minimiser: minimising log-loss is equivalent to maximising the Bernoulli likelihood.</p>
 
 <p><strong>Regularised variants.</strong> Add a penalty on the weights (never the intercept):</p>
 $$ J_{\ell_2}(\beta)=J(\beta)+\frac{\lambda}{2}\|\beta_{1:p}\|_2^2, \qquad J_{\ell_1}(\beta)=J(\beta)+\lambda\|\beta_{1:p}\|_1. $$
@@ -443,12 +443,19 @@ $$ \nabla_\beta\ell=\sum_{i=1}^n(y_i-p_i)\,x_i = X^\top(y-p), \qquad \nabla_\bet
 <h3>4.4 The Hessian and convexity</h3>
 <p>Differentiate the gradient again. Since $\frac{\partial p_i}{\partial\beta}=p_i(1-p_i)x_i$,</p>
 $$ \nabla^2_\beta\ell=-\sum_{i=1}^n p_i(1-p_i)\,x_i x_i^\top = -X^\top S X, \qquad S=\operatorname{diag}\big(p_i(1-p_i)\big). $$
-<p>Each $p_i(1-p_i)>0$, so $X^\top S X$ is positive semidefinite, meaning the negative log-likelihood $J$ has a positive-semidefinite Hessian, so it is convex. Convexity guarantees no spurious local minima: any optimiser that reaches a stationary point has found the global optimum. (With $\ell_2$ regularisation the Hessian becomes $X^\top SX+\lambda I\succ0$, strictly convex, so the optimum is unique even under separation.)</p>
+<p>For finite coefficients, $p_i(1-p_i)>0$, so $X^\top S X$ is positive semidefinite and $J$ is convex. A finite stationary point is a global minimiser, but perfectly separable data have no finite unregularised minimiser. Defining $P=\operatorname{diag}(0,1,\ldots,1)$ to leave the intercept unpenalised, the regularised mean loss of §3 has</p>
+<div class="box">
+$$ \nabla J_{\ell_2}=\frac1n X^\top(p-y)+\lambda P\beta,\qquad
+\nabla^2 J_{\ell_2}=\frac1n X^\top SX+\lambda P. $$
+</div>
+<p>With $\lambda>0$ and both classes present, this objective has a finite, unique minimiser, even under separation.</p>
 
 <h3>4.5 Newton's method / IRLS</h3>
 <p>A Newton step uses both gradient and Hessian:</p>
 $$ \beta^{(t+1)}=\beta^{(t)}+(X^\top S X)^{-1}X^\top(y-p). $$
-<p>Rearranged, each iteration is a <em>weighted least-squares</em> solve, hence the name iteratively reweighted least squares (IRLS). Each iteration re-linearises the problem and solves a weighted OLS with weights $p_i(1-p_i)$ (largest near $p=0.5$, where an observation is most informative). Each step therefore solves weighted versions of the normal equations from <a href="../01-linear-regression/">Lecture 1</a>.</p>
+<p>Rearranged, each iteration is a <em>weighted least-squares</em> solve (IRLS), with weights $p_i(1-p_i)$, largest near $p=0.5$. For the regularised <em>mean</em> loss of §3, the Newton step is</p>
+$$ \beta^{(t+1)}=\beta^{(t)}+\big(X^\top SX+n\lambda P\big)^{-1}\big[X^\top(y-p)-n\lambda P\beta^{(t)}\big]. $$
+<p>This is penalised weighted least squares. Taking $\lambda=0$ recovers the unregularised weighted normal equations from <a href="../01-linear-regression/">Lecture 1</a>.</p>
 
 <h2 id="s5">5. Algorithm</h2>
 
@@ -467,8 +474,9 @@ Predict: p* = σ(x*ᵀβ);  label = 1 if p* ≥ threshold (default 0.5) else 0</
 <pre><code>1. Initialise β ← 0
 2. repeat until convergence:
      p = σ(Xβ);  S = diag(p_i(1−p_i))
-     β ← β + (Xᵀ S X + λI)⁻¹ Xᵀ (y − p)     # one weighted-least-squares solve
-3. return β, and Cov(β) ≈ (Xᵀ S X)⁻¹  for standard errors</code></pre>
+      P = diag(0,1,...,1)   # intercept unpenalised
+      β ← β + solve(Xᵀ S X + nλP, Xᵀ(y − p) − nλPβ)  # penalised Newton
+3. return β; for a finite unregularised MLE, Cov(β) ≈ (Xᵀ S X)⁻¹
 
 <p><strong>Stopping criteria:</strong> gradient norm below tolerance, change in loss below tolerance, or a max-iteration cap. <strong>Outputs:</strong> the coefficient vector $\hat\beta$; predicted probabilities; optionally the covariance of $\hat\beta$ (from the inverse Hessian) for inference.</p>
 
@@ -486,7 +494,7 @@ Predict: p* = σ(x*ᵀβ);  label = 1 if p* ≥ threshold (default 0.5) else 0</
 </tbody>
 </table>
 
-<p>We'll take a fixed candidate $\beta=(\beta_0,\beta_1)=(-5,\,2)$ and compute one gradient step by hand to show the mechanics (the true MLE is found by iterating this).</p>
+<p>We'll take a fixed candidate $\beta=(\beta_0,\beta_1)=(-5,\,2)$ and compute one gradient step by hand. These four observations are perfectly separable, so no finite unregularised maximum-likelihood estimate exists.</p>
 
 <p><strong>Step 1: linear predictors $\eta_i=\beta_0+\beta_1 x_i$:</strong></p>
 $$ \eta_1=-5+2=-3,\quad \eta_2=-5+4=-1,\quad \eta_3=-5+6=1,\quad \eta_4=-5+8=3. $$
@@ -502,12 +510,12 @@ $$ \frac{\partial\ell}{\partial\beta_0}=\sum_i(y_i-p_i)=-0.0474-0.2689+0.2689+0.
 $$ \frac{\partial\ell}{\partial\beta_1}=\sum_i(y_i-p_i)x_i=(-0.0474)(1)+(-0.2689)(2)+(0.2689)(3)+(0.0474)(4) $$
 $$ =-0.0474-0.5378+0.8067+0.1896=0.4111. $$
 
-<p>The intercept gradient is exactly $0$ here because this symmetric dataset already balances the classes at $\beta_0=-5,\beta_1=2$ (the data are symmetric about $x=2.5$ and this line puts $p=0.5$ there). The slope gradient is positive, so gradient <em>ascent</em> on $\ell$ (descent on $J$) would <em>increase</em> $\beta_1$: the model wants a steeper slope, sharpening the boundary. This is consistent with the data being perfectly separable, which drives $\beta_1\to\infty$ at the unregularised MLE (see §18).</p>
+<p>By symmetry the intercept score is exactly zero; the slope score is positive. For one descent step on the <em>mean</em> loss $J=-\ell/4$ with learning rate $\alpha=0.5$, $\nabla J\approx(0,-0.1028)$, giving $\beta_{\mathrm{new}}\approx(-5,2.0514)$. The intercept remains fixed on this first step but generally moves during further iteration.</p>
 
 <p><strong>Step 5: current loss (cross-entropy).</strong> Per-observation $-[y\log p+(1-y)\log(1-p)]$:</p>
 $$ -\log(1-p_1)=-\log0.9526=0.0486,\quad -\log(1-p_2)=-\log0.7311=0.3133, $$
 $$ -\log p_3=-\log0.7311=0.3133,\quad -\log p_4=-\log0.9526=0.0486. $$
-<p>Average $J=(0.0486+0.3133+0.3133+0.0486)/4\approx0.181$. Increasing $\beta_1$ (steeper boundary) would push $p_3,p_4$ towards $1$ and $p_1,p_2$ towards $0$, lowering $J$ further towards $0$, again the separation signature.</p>
+<p>Average $J=(0.0486+0.3133+0.3133+0.0486)/4\approx0.181$. Along the centred steepening path $\beta(t)=(-2.5t,t)$, the predictor is $\eta_i=t(x_i-2.5)$. As $t\to\infty$, predicted probabilities tend to $0$ for $x=1,2$ and $1$ for $x=3,4$, so $J(\beta(t))\to0$. Every finite $t$ has positive loss: the likelihood has a supremum, but no finite maximiser. With an $\ell_2$ penalty, a finite solution exists.</p>
 
 <h2 id="s7">7. Geometry and Visual Interpretation</h2>
 
@@ -585,9 +593,9 @@ $$ -\log p_3=-\log0.7311=0.3133,\quad -\log p_4=-\log0.9526=0.0486. $$
 
 <h2 id="s10">10. Hyperparameters</h2>
 
-<p><strong>$C$ (inverse regularisation strength): scikit-learn's main knob; $C=1/\lambda$.</strong></p>
+<p><strong>$C$ (inverse regularisation strength): scikit-learn's main knob.</strong> Its precise relation to $\lambda$ depends on the loss normalisation.</p>
 <ul>
-  <li><em>Mathematically:</em> the objective is $\;J(\beta)+\frac{1}{C}\cdot\text{penalty}$ (or equivalently $C\cdot\text{loss}+\text{penalty}$ depending on convention). Large $C$ = weak penalty; small $C$ = strong penalty.</li>
+  <li><em>Mathematically:</em> for $n$ unit-weight samples, the $\ell_2$ objective is mean log-loss $J(\beta)+\frac{1}{2nC}\|\beta_{1:p}\|_2^2$. Thus $\lambda=1/(nC)$ in §3. More generally, replace $n$ by total weight $S$. Large $C$ means weaker regularisation; small $C$ stronger.</li>
   <li><em>Increasing $C$ (weaker regularisation):</em> coefficients grow, boundary sharpens → lower bias, higher variance; risks overfitting and separation blow-up.</li>
   <li><em>Decreasing $C$ (stronger regularisation):</em> coefficients shrink towards 0, boundary softens → higher bias, lower variance; at $C\to0$ the model predicts the base rate everywhere.</li>
   <li><em>Cost:</em> negligible per-fit; the cost is the CV search. <em>Guidance:</em> tune on a log grid ($10^{-3}$ to $10^{3}$) by cross-validated log-loss or AUC; always standardise features first.</li>
@@ -776,8 +784,9 @@ class LogisticRegressionScratch:
             grad = Xd.T @ (p - y) / n
             if self.l2:                                # do not penalise intercept
                 reg = self.l2 * self.beta_
-                reg[0] = 0.0
-                grad = grad + reg / n
+                if self.fit_intercept:
+                    reg[0] = 0.0
+                grad = grad + reg    # λPβ, consistent with mean log-loss
             self.beta_ -= self.lr * grad               # descend the convex bowl
         return self
 
@@ -830,27 +839,28 @@ pre = ColumnTransformer([
 
 pipe = Pipeline([
     ("prep", pre),
-    ("clf", LogisticRegression(solver="lbfgs", class_weight="balanced",
-                               max_iter=1000)),   # L2 is the default (l1_ratio=0)
+    ("clf", LogisticRegression(solver="lbfgs", max_iter=1000)),
+    # class_weight="balanced" is optional, but may affect calibration.
 ])
 
-# Tune C (inverse regularisation) by cross-validated log-loss.
+# Nested CV: hyperparameter selection happens inside each outer fold.
+inner = StratifiedKFold(5, shuffle=True, random_state=0)
+outer = StratifiedKFold(5, shuffle=True, random_state=1)
 grid = GridSearchCV(
     pipe, {"clf__C": np.logspace(-3, 3, 13)},
-    scoring="neg_log_loss",
-    cv=StratifiedKFold(5, shuffle=True, random_state=0),
+    scoring="neg_log_loss", cv=inner,
 )
-grid.fit(df[num + cat], df["y"])
-print("best C:", grid.best_params_["clf__C"])
-
-# Honest out-of-fold probabilities for evaluation and calibration.
-proba = cross_val_predict(grid.best_estimator_, df[num + cat], df["y"],
-                          cv=StratifiedKFold(5, shuffle=True, random_state=1),
-                          method="predict_proba")[:, 1]
+proba = cross_val_predict(grid, df[num + cat], df["y"],
+                          cv=outer, method="predict_proba")[:, 1]
 print("ROC-AUC :", roc_auc_score(df["y"], proba))
 print("PR-AUC  :", average_precision_score(df["y"], proba))
 print("log-loss:", log_loss(df["y"], proba))
 frac_pos, mean_pred = calibration_curve(df["y"], proba, n_bins=10)  # reliability diagram
+
+# After unbiased outer-fold evaluation, refit on all data for deployment.
+grid.fit(df[num + cat], df["y"])
+print("best C (full data):", grid.best_params_["clf__C"])
+final_model = grid.best_estimator_
 
 # ---- 2. statsmodels: inference-focused (odds ratios, SEs, p-values) ----
 X_sm = sm.add_constant(df[num])            # explicit intercept
@@ -866,7 +876,7 @@ print(pd.concat([odds_ratios.rename("OR"), ci], axis=1))</code></pre>
 
 <p><strong><code>sklearn.linear_model.LogisticRegression</code></strong></p>
 <ul>
-  <li><code>C</code>: <em>inverse</em> regularisation strength, $C=1/\lambda$. The objective is $C\sum_i \text{logloss}_i + \frac12\|\beta\|^2$ (for $\ell_2$). Large $C$ → weak penalty, larger coefficients, lower bias/higher variance (§10, §11); small $C$ → strong shrinkage. The single most important knob.</li>
+  <li><code>C</code>: inverse regularisation strength. For total weight $S$, the mean log-loss $\ell_2$ objective is $J(\beta)+\frac{1}{2SC}\|\beta_{1:p}\|^2$, so $\lambda=1/(SC)$ in §3 (or $1/(nC)$ for unit weights). The <code>liblinear</code> solver handles the intercept differently.</li>
   <li><code>l1_ratio</code>: the penalty type, which sets the shape of the constraint region. <code>0</code> gives $\ell_2$ (smooth shrinkage, stabilises separation; the default), <code>1</code> gives $\ell_1$ (sparsity and feature selection, the diamond geometry), and values in between give the elastic net. An unpenalised fit (pure MLE; beware separation) is <code>C=np.inf</code>. Before scikit-learn 1.8 these were set with <code>penalty='l2'</code>, <code>'l1'</code>, <code>'elasticnet'</code> or <code>None</code>; that argument is deprecated and will be removed in 1.10.</li>
   <li><code>solver</code>, the optimiser: <code>'lbfgs'</code>/<code>'newton-cg'</code> (quasi-Newton and Newton methods, $\ell_2$ only), <code>'liblinear'</code> (coordinate descent, good for $\ell_1$ and small data), <code>'saga'</code> (stochastic, scales to large $n$, supports elastic-net). Purely numerical: same estimator, different route (and separation behaviour).</li>
   <li><code>class_weight</code>: reweights each class's contribution to the loss; <code>'balanced'</code> uses inverse frequencies, effectively multiplying the minority class's log-loss terms so the gradient $X^\top(p-y)$ pays it more attention (§13).</li>
@@ -878,7 +888,8 @@ print(pd.concat([odds_ratios.rename("OR"), ci], axis=1))</code></pre>
 <p><strong><code>statsmodels.Logit</code></strong></p>
 <ul>
   <li><code>.fit(method='newton')</code>: IRLS/Newton (§4.5), returning the Fisher-information covariance for SEs.</li>
-  <li><code>.fit_regularized(alpha=..., L1_wt=...)</code>: penalised MLE; <code>alpha</code> is $\lambda$, <code>L1_wt</code> mixes $\ell_1$/$\ell_2$.</li>
+  <li><code>Logit.fit_regularized(alpha=...)</code> fits an $\ell_1$-penalised model and does not expose <code>L1_wt</code> for elastic-net mixing.</li>
+  <li>For elastic net use <code>statsmodels.GLM(..., family=sm.families.Binomial()).fit_regularized(alpha=..., L1_wt=...)</code>; specify coefficient-specific weights when the intercept should be unpenalised.</li>
   <li><code>.params</code> are log-odds coefficients; <code>np.exp(.params)</code> are odds ratios (§8).</li>
 </ul>
 
@@ -897,7 +908,7 @@ The Hessian is $-X^\top S X$ with $S=\operatorname{diag}(p_i(1-p_i))\succeq0$, s
 A one-unit increase in $x_j$ adds $1.1$ to the log-odds, multiplying the odds by $e^{1.1}\approx3.0$, roughly tripling the odds of the positive class, holding other features fixed. It does <em>not</em> mean the probability triples.</p>
 
 <p><strong>5. What is perfect separation and how do you handle it?</strong><br>
-When a hyperplane perfectly splits the classes, the likelihood increases without bound as $\|\beta\|\to\infty$; there is no finite MLE, so solvers diverge and SEs explode. Fix with $\ell_2$ regularisation (restores a unique finite optimum) or Firth's penalised likelihood.</p>
+When a hyperplane perfectly splits the classes, the likelihood approaches its supremum of $1$ as $\|\beta\|\to\infty$; there is no finite MLE, so unregularised solvers fail to converge and standard errors are unreliable. Fix with $\ell_2$ regularisation or Firth's penalised likelihood.</p>
 
 <p><strong>6. Logistic regression vs linear SVM: when do you prefer each?</strong><br>
 Prefer logistic when you need calibrated probabilities or interpretable odds ratios (log-loss uses all points). Prefer SVM (hinge loss) when you only need the boundary, want robustness to points far from it, or plan to kernelise for nonlinearity. Their linear boundaries are often similar.</p>
@@ -999,7 +1010,7 @@ Classify positive when $\sigma(x^\top\beta)\ge0.5\Leftrightarrow x^\top\beta\ge0
 <tr><td><strong>Gradient</strong></td><td>$\nabla_\beta J=\frac1n X^\top(p-y)$ (features × residual)</td></tr>
 <tr><td><strong>Solution</strong></td><td>No closed form; convex → gradient descent / Newton–IRLS / L-BFGS</td></tr>
 <tr><td><strong>Key assumptions</strong></td><td>Log-odds linear in features, independent obs, no perfect separation/collinearity</td></tr>
-<tr><td><strong>Important hyperparameters</strong></td><td>$C=1/\lambda$, penalty ($\ell_1$/$\ell_2$/elastic-net), class_weight, threshold, solver</td></tr>
+<tr><th>Important hyperparameters</th><td>Inverse penalty strength $C$ ($\lambda=1/(SC)$ for mean loss), penalty ($\ell_1$/$\ell_2$/elastic-net), <code>class_weight</code>, threshold, solver</td></tr>
 <tr><td><strong>Scaling required?</strong></td><td>Yes for regularised fits & fast convergence; optional for plain MLE correctness</td></tr>
 <tr><td><strong>Handles nonlinearities?</strong></td><td>Only via engineered features (linear log-odds/boundary otherwise)</td></tr>
 <tr><td><strong>Handles categoricals?</strong></td><td>Via one-hot encoding (drop one level)</td></tr>
