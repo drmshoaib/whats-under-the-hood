@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="description" content="What's Under the Hood? #03: Distance metrics, Voronoi cells, weighting, scaling, and the curse of dimensionality.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="#03 k-Nearest Neighbours · What&#x27;s Under the Hood?">
+<meta property="og:description" content="Distance metrics, Voronoi cells, weighting, scaling, and the curse of dimensionality.">
+<meta property="og:url" content="https://drmshoaib.github.io/whats-under-the-hood/03-k-nearest-neighbours/">
+<meta property="og:image" content="https://drmshoaib.github.io/whats-under-the-hood/03-k-nearest-neighbours/cover-03-k-nearest-neighbours.png">
+<meta property="og:image:width" content="1920">
+<meta property="og:image:height" content="1080">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="author" content="Dr. Muhammad Shoaib">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#03 k-Nearest Neighbours · What's Under the Hood?</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #555;
+    --accent: #1f4e79;
+    --accent-light: #2e6da4;
+    --border: #d8dee4;
+    --code-bg: #f5f7f9;
+    --table-stripe: #f6f8fa;
+    --box-bg: #f0f6ff;
+    --box-border: #b8d4f0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a;
+      --fg: #e6e6e6;
+      --muted: #a8b0b8;
+      --accent: #7fb8e6;
+      --accent-light: #9cc9ee;
+      --border: #333a42;
+      --code-bg: #1d2226;
+      --table-stripe: #1b1f23;
+      --box-bg: #16232e;
+      --box-border: #2a4a63;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0;
+    font-size: 18px;
+  }
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 28px 120px;
+  }
+  header.title {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 20px;
+    margin-bottom: 40px;
+  }
+  header.title h1 {
+    font-size: 2.2rem;
+    margin: 0 0 6px;
+    color: var(--accent);
+    line-height: 1.2;
+  }
+  header.title .subtitle {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 1.05rem;
+  }
+  h2 {
+    color: var(--accent);
+    font-size: 1.6rem;
+    margin-top: 2.4em;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    color: var(--accent-light);
+    font-size: 1.25rem;
+    margin-top: 1.8em;
+  }
+  h4 {
+    font-size: 1.08rem;
+    margin-top: 1.4em;
+    color: var(--fg);
+  }
+  p { margin: 0.9em 0; }
+  a { color: var(--accent-light); }
+  strong { color: var(--fg); }
+  code {
+    font-family: "SF Mono", "Consolas", "Menlo", monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    font-size: 0.82rem;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1.4em 0;
+    font-size: 0.92rem;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    display: block;
+    overflow-x: auto;
+    white-space: normal;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+  tbody tr:nth-child(even) { background: var(--table-stripe); }
+  blockquote {
+    border-left: 4px solid var(--accent-light);
+    margin: 1.2em 0;
+    padding: 4px 18px;
+    color: var(--muted);
+    background: var(--box-bg);
+    border-radius: 0 6px 6px 0;
+  }
+  ul, ol { padding-left: 1.6em; }
+  li { margin: 0.4em 0; }
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2.5em 0;
+  }
+  .box {
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 8px;
+    padding: 4px 20px;
+    margin: 1.4em 0;
+  }
+  .toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 26px;
+    margin-bottom: 40px;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 0.9rem;
+  }
+  .toc h2 {
+    border: none;
+    margin: 0 0 10px;
+    font-size: 1.15rem;
+    padding: 0;
+  }
+  .toc ol { columns: 2; column-gap: 36px; margin: 0; }
+  .toc a { text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  mjx-container { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+  figure { margin: 1.8em 0; }
+  .fig-wrap {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 18px 10px;
+  }
+  figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 10px;
+    font-style: italic;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    text-align: center;
+  }
+</style>
+<style id="layout-override">
+  .wrap { display:flex; max-width:none; margin:0; padding:0; align-items:flex-start; }
+  .sidebar { position:sticky; top:0; align-self:flex-start; width:290px; min-width:290px;
+    height:100vh; overflow-y:auto; padding:24px 20px; border-right:1px solid var(--border);
+    background:var(--code-bg); font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; }
+  .content { flex:1; min-width:0; padding:44px 56px 120px; }
+  .sb-index { display:block; background:var(--accent); color:#fff; text-decoration:none;
+    font-weight:600; font-size:0.9rem; text-align:center; padding:10px 14px; border-radius:8px;
+    margin-bottom:18px; }
+  .sb-index:hover { opacity:0.9; }
+  .sidebar .toc { position:static; margin:0 0 18px; padding:0; background:none;
+    border:none; border-radius:0; }
+  .sidebar .toc h2 { font-size:0.9rem; margin:0 0 8px; border:none; padding:0; }
+  .sidebar .toc ol { columns:1; font-size:0.8rem; padding-left:1.3em; line-height:1.5; }
+  .sidebar .toc a { color:var(--fg); }
+  .sidebar .toc a:hover { color:var(--accent); }
+  .sb-nav { display:flex; flex-direction:column; gap:10px; border-top:1px solid var(--border);
+    padding-top:16px; margin-top:4px; }
+  .sb-nav a { font-size:0.82rem; text-decoration:none; color:var(--accent); font-weight:600; }
+  .sb-nav .lbl { display:block; font-size:0.68rem; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted); font-weight:400; }
+  @media (max-width: 820px) {
+    .wrap { flex-direction:column; }
+    .sidebar { position:static; width:auto; min-width:0; height:auto; overflow:visible;
+      border-right:none; border-bottom:1px solid var(--border); }
+    .sidebar .toc ol { columns:2; }
+    .content { padding:28px 20px 80px; }
+  }
+  header.title h1 { overflow-wrap:break-word; }
+  @media (max-width: 820px){ header.title h1 { font-size:1.7rem; } }
+  /* mobile-overflow fix */
+  mjx-container[display="true"] { min-width:0 !important; overflow-x:auto; overflow-y:hidden; max-width:100%; }
+  @media (max-width: 820px){
+    .wrap { align-items:stretch; }
+    .sidebar, .content { width:100%; max-width:100%; min-width:0; }
+    pre, table, figure, .box, blockquote { max-width:100%; }
+    /* long inline formulas: swipeable instead of widening the page; no scrollbar chrome */
+    mjx-container:not([display="true"]) { display:inline-block; max-width:100%; overflow-x:auto;
+      overflow-y:hidden; vertical-align:middle; scrollbar-width:none; }
+    mjx-container:not([display="true"])::-webkit-scrollbar { display:none; }
+  }
+
+  /* --- public site theme: always light, matching the landing page palette --- */
+  html:root { color-scheme: light;
+    --bg:#ffffff; --fg:#0d1b2a; --muted:#52606d; --accent:#0a5f9e; --accent-light:#0b8fd8;
+    --border:#d9e2ec; --code-bg:#f7fafc; --table-stripe:#f7fafc; --box-bg:#eef6fc; --box-border:#c6dcec; }
+  /* --- series branding (release build) --- */
+  .sb-series { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--fg);
+    font-weight:700; font-size:0.95rem; margin-bottom:14px; }
+  .sb-series img { width:44px; height:44px; border-radius:8px; }
+  .sb-soon { display:block; font-size:0.82rem; color:var(--muted); }
+  .sb-soon .lbl { display:block; font-size:0.68rem; text-transform:uppercase; letter-spacing:.06em; }
+  header.title .eyebrow { margin:0 0 8px; color:var(--accent-light); font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; font-size:0.8rem; font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; }
+  header.title .meta { margin-top:10px; font-size:0.9rem; color:var(--muted);
+    font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; }
+  .plain-ref { text-decoration:underline dotted; text-underline-offset:3px; }
+</style>
+<script data-goatcounter="https://whatsunderthehood.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<div class="wrap">
+<aside class="sidebar">
+<a class="sb-series" href="../"><img src="../assets/series-logo.svg" alt=""><span>What's Under the Hood?</span></a>
+<a class="sb-index" href="../">&larr; Series index</a>
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#s1">Motivation and Problem Setting</a></li>
+    <li><a href="#s2">Core Intuition</a></li>
+    <li><a href="#s3">Mathematical Formulation</a></li>
+    <li><a href="#s4">Derivation</a></li>
+    <li><a href="#s5">Algorithm</a></li>
+    <li><a href="#s6">Worked Numerical Example</a></li>
+    <li><a href="#s7">Geometry and Visual Interpretation</a></li>
+    <li><a href="#s8">Statistical Interpretation</a></li>
+    <li><a href="#s9">Training and Optimisation</a></li>
+    <li><a href="#s10">Hyperparameters</a></li>
+    <li><a href="#s11">Bias–Variance Behaviour</a></li>
+    <li><a href="#s12">Computational Complexity</a></li>
+    <li><a href="#s13">Data Preparation</a></li>
+    <li><a href="#s14">Evaluation</a></li>
+    <li><a href="#s15">Validation Strategy</a></li>
+    <li><a href="#s16">Diagnostics</a></li>
+    <li><a href="#s17">Strengths</a></li>
+    <li><a href="#s18">Weaknesses and Failure Modes</a></li>
+    <li><a href="#s19">Comparison With Related Algorithms</a></li>
+    <li><a href="#s20">When I Should Use It</a></li>
+    <li><a href="#s21">Python Implementation From Scratch</a></li>
+    <li><a href="#s22">Production Python Implementation</a></li>
+    <li><a href="#s23">Library Parameters Mapped to Mathematics</a></li>
+    <li><a href="#s24">Common Interview Questions</a></li>
+    <li><a href="#s25">Common Misconceptions</a></li>
+    <li><a href="#s26">Exercises</a></li>
+    <li><a href="#s26s">Solutions</a></li>
+    <li><a href="#s27">Summary Cheat Sheet</a></li>
+  </ol>
+</nav>
+<div class="sb-nav"><a href="../02-logistic-regression/"><span class="lbl">&larr; Previous</span>Logistic Regression</a><span class="sb-soon"><span class="lbl">Next &rarr;</span>Naive Bayes &middot; coming next week</span></div>
+</aside>
+<main class="content">
+<header class="title">
+  <p class="eyebrow">What's Under the Hood? &middot; #03 &middot; Week 3</p>
+  <h1>Lecture 3: k-Nearest Neighbours</h1>
+  <div class="subtitle">Part I: Mathematical Foundations and Classical Supervised Learning</div>
+  <div class="meta">Dr. Muhammad Shoaib &middot; Applied Mathematics &amp; Data Science &middot; <a href="https://www.linkedin.com/newsletters/7510688077275648000/">LinkedIn newsletter</a> &middot; every lecture follows the same 27 sections &mdash; use the sidebar to navigate.</div>
+</header>
+
+<p>The first two lectures fitted <em>parameters</em>: we chose a functional form ($x^\top\beta$), estimated coefficients, and then discarded the training data, because prediction needed only $\hat\beta$. k-nearest neighbours (KNN) does the opposite. It fits nothing. It keeps every training example and, when asked to predict, finds the most similar stored examples and copies their answer. This makes KNN the standard example of an instance-based, non-parametric, lazy learner. It also introduces two ideas that recur throughout the course: similarity (distance) can itself be a model, and flexibility without structure degrades quickly as the dimension grows. KNN is where the <em>curse of dimensionality</em> first appears in full, and seeing why it breaks KNN explains why so much of machine learning is about finding good low-dimensional representations.</p>
+
+<hr>
+
+<h2 id="s1">1. Motivation and Problem Setting</h2>
+
+<p><strong>The problem.</strong> Given labelled training data $\{(x_i,y_i)\}_{i=1}^n$ with $x_i\in\mathbb{R}^p$, predict the label of a new point $x_\ast$. For classification, $y_i$ is a class; for regression, $y_i$ is a real number. KNN answers by finding the $k$ training points closest to $x_\ast$ and aggregating their labels: a majority vote (classification) or an average (regression).</p>
+
+<p><strong>The core idea and why it was developed.</strong> KNN formalises the oldest intuition in prediction: <em>things that are similar tend to have similar outcomes</em>. If a new patient's measurements closely match those of past patients who had condition A, predict A. It requires no assumption about the functional form of the relationship. Fix & Hodges introduced the nearest-neighbour rule in 1951 for nonparametric discrimination; Cover and Hart (1967) proved the asymptotic error bound of §4.3, which gave the method a theoretical footing.</p>
+
+<p><strong>Where it sits.</strong> KNN is supervised, non-parametric (its complexity grows with the data, not a fixed parameter count), instance-based or memory-based, and lazy (no training-time model fitting; all work is deferred to prediction time). It is a <em>local</em> method: the prediction at $x_\ast$ depends only on a neighbourhood, unlike the <em>global</em> parametric fits of <a href="../01-linear-regression/">Lecture 1</a> and <a href="../02-logistic-regression/">Lecture 2</a>. It is also the simplest member of the distance-based family that leads into clustering: K-Means (<span class="plain-ref" title="Lecture 12 is released in Week 12">coming in Week 12</span>) and DBSCAN (<span class="plain-ref" title="Lecture 13 is released in Week 13">coming in Week 13</span>).</p>
+
+<p><strong>Assumptions.</strong></p>
+<ol>
+  <li><strong>Local smoothness:</strong> the target varies smoothly enough that nearby points share labels: $P(y\mid x)$ (or $\mathbb{E}[y\mid x]$) is roughly constant within a small neighbourhood.</li>
+  <li><strong>A meaningful distance metric:</strong> "closeness" in feature space must correspond to similarity in outcome. This is a strong, often overlooked assumption.</li>
+  <li><strong>Comparable feature scales:</strong> because distance mixes features additively, they must be on commensurate scales (otherwise one feature dominates; see §13).</li>
+  <li><strong>Sufficient density:</strong> enough training points that a small neighbourhood actually contains relevant examples. This is what fails in high dimensions.</li>
+</ol>
+
+<p><strong>When reasonable / unreasonable.</strong> KNN works well in low-to-moderate dimensions with abundant, well-scaled data and locally smooth targets (e.g. geospatial interpolation, recommendation by similarity, simple image tasks after good feature extraction). It fails when dimensionality is high (distances lose contrast), when features are on very different scales or many are irrelevant, when the data are sparse, or when prediction latency/memory matters (it stores everything).</p>
+
+<h2 id="s2">2. Core Intuition</h2>
+
+<p>Imagine plotting your training data as coloured dots (one colour per class). To classify a new grey dot, draw a small circle around it and grow the circle until it captures exactly $k$ coloured dots; whichever colour is the majority inside the circle wins. That is the entire algorithm. For regression, instead of voting you average the numeric labels of those $k$ neighbours.</p>
+
+<figure>
+<div class="fig-wrap">
+<svg viewBox="0 0 420 300" role="img" aria-label="A query point with a circle enclosing its k nearest neighbours, showing the majority vote">
+  <rect x="30" y="20" width="360" height="260" fill="none" stroke="var(--border)" stroke-width="1.2"/>
+  <!-- class A points (filled) -->
+  <circle cx="170" cy="150" r="6" fill="var(--accent)"/>
+  <circle cx="210" cy="120" r="6" fill="var(--accent)"/>
+  <circle cx="150" cy="110" r="6" fill="var(--accent)"/>
+  <circle cx="110" cy="180" r="6" fill="var(--accent)"/>
+  <circle cx="90" cy="90" r="6" fill="var(--accent)"/>
+  <!-- class B points (open) -->
+  <circle cx="250" cy="200" r="6" fill="none" stroke="var(--accent-light)" stroke-width="2.2"/>
+  <circle cx="290" cy="160" r="6" fill="none" stroke="var(--accent-light)" stroke-width="2.2"/>
+  <circle cx="300" cy="230" r="6" fill="none" stroke="var(--accent-light)" stroke-width="2.2"/>
+  <circle cx="340" cy="190" r="6" fill="none" stroke="var(--accent-light)" stroke-width="2.2"/>
+  <circle cx="230" cy="250" r="6" fill="none" stroke="var(--accent-light)" stroke-width="2.2"/>
+  <!-- query point -->
+  <circle cx="200" cy="180" r="6" fill="#d9534f"/>
+  <text x="208" y="176" font-family="sans-serif" font-size="12" fill="#d9534f">x&#8734;? query</text>
+  <!-- k=5 neighbourhood circle: encloses 3 A (170,150),(210,120)?,(110,180) and 2 B (250,200)?; choose radius to catch nearest 5 -->
+  <!-- distances from (200,180): (170,150)=42, (210,120)=61, (150,110)=86, (110,180)=90, (250,200)=54, (290,160)=92 -->
+  <!-- nearest 5: 42(A),54(B),61(A),86(A),90(A) -> radius ~91 -->
+  <circle cx="200" cy="180" r="91" fill="var(--accent)" fill-opacity="0.06" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="5 4"/>
+  <text x="200" y="285" text-anchor="middle" font-family="sans-serif" font-size="11" fill="var(--muted)">k = 5 neighbourhood &#8594; 4 filled vs 1 open &#8594; predict &#9679;</text>
+  <!-- legend -->
+  <circle cx="44" cy="35" r="6" fill="var(--accent)"/>
+  <text x="54" y="39" font-family="sans-serif" font-size="10" fill="var(--fg)">class A</text>
+  <circle cx="110" cy="35" r="6" fill="none" stroke="var(--accent-light)" stroke-width="2.2"/>
+  <text x="120" y="39" font-family="sans-serif" font-size="10" fill="var(--fg)">class B</text>
+  <circle cx="176" cy="35" r="6" fill="#d9534f"/>
+  <text x="186" y="39" font-family="sans-serif" font-size="10" fill="var(--fg)">query</text>
+</svg>
+</div>
+<figcaption>KNN classification: grow a circle around the query until it captures the k nearest training points, then take the majority label. Here k=5 catches four class-A points and one class-B, so the query is labelled A. Shrinking k to 1 would use only the single closest point; enlarging k smooths the decision.</figcaption>
+</figure>
+
+<p><strong>Why the mechanism works.</strong> If the true label surface is locally smooth, then the labels of the closest points are the best available evidence about the label here; no fitted model is needed, because the data <em>are</em> the model. Averaging $k$ of them reduces noise: one mislabelled or noisy neighbour is outvoted. So $k$ is a smoothing dial: small $k$ trusts the very nearest evidence (jagged, low bias, high variance), large $k$ averages over a wide region (smooth, higher bias, lower variance).</p>
+
+<p><strong>Geometric intuition.</strong> With $k=1$, the plane is carved into <em>Voronoi cells</em>: each training point owns the region closer to it than to any other, and every query inside that cell inherits that point's label. The decision boundary is the jagged union of cell walls (§7). Larger $k$ smooths these walls.</p>
+
+<p><strong>Probabilistic intuition.</strong> KNN classification estimates $P(y=c\mid x_\ast)$ by the local class frequency: the fraction of the $k$ neighbours in class $c$. It is a crude but consistent estimate of the conditional distribution: crude because the neighbourhood is finite, consistent because as $n\to\infty$ and $k\to\infty$ (slowly) the neighbourhood shrinks to $x_\ast$ while containing ever more points.</p>
+
+<p><em>Tiny numerical seed.</em> Training points on a line: $x=1$ (class A), $x=2$ (A), $x=5$ (B), $x=6$ (B). Query $x_\ast=3$. Distances: $2,1,2,3$. With $k=1$ the nearest is $x=2$ → A. With $k=3$ the three nearest are $x=2,1,5$ (distances $1,2,2$) → votes A,A,B → A. We compute a richer 2D example in §6.</p>
+
+<h2 id="s3">3. Mathematical Formulation</h2>
+
+<p><strong>Notation.</strong> Training set $\mathcal{D}=\{(x_i,y_i)\}_{i=1}^n$, $x_i\in\mathbb{R}^p$. Query point $x_\ast$. A distance function $d(\cdot,\cdot)$. Let $N_k(x_\ast)$ denote the index set of the $k$ training points with smallest $d(x_\ast,x_i)$ (the $k$ nearest neighbours).</p>
+
+<p><strong>Distance metrics.</strong> The <em>Minkowski distance</em> of order $q$ unifies the common choices:</p>
+$$ d_q(x,x') = \left(\sum_{j=1}^p |x_j-x'_j|^q\right)^{1/q}. $$
+<ul>
+  <li>$q=2$: <em>Euclidean</em> distance $\sqrt{\sum_j (x_j-x'_j)^2}$, the straight-line distance and the usual default.</li>
+  <li>$q=1$: <em>Manhattan</em> (city-block) distance $\sum_j|x_j-x'_j|$, less sensitive to outliers and often better than Euclidean in higher dimensions (Aggarwal, Hinneburg and Keim, 2001).</li>
+  <li>$q\to\infty$: <em>Chebyshev</em> distance $\max_j|x_j-x'_j|$.</li>
+</ul>
+<p>Other useful metrics: <em>cosine distance</em> $1-\frac{x^\top x'}{\|x\|\|x'\|}$ (direction without magnitude, as for text and embeddings), <em>Hamming</em> (categorical), and the <em>Mahalanobis</em> distance $d_M(x,x')=\sqrt{(x-x')^\top\Sigma^{-1}(x-x')}$, which accounts for feature correlations and scale via the covariance $\Sigma$.</p>
+
+<p><strong>Classification rule.</strong> Predict the majority class among the neighbours:</p>
+<div class="box">
+$$ \hat y(x_\ast) = \arg\max_{c}\ \sum_{i\in N_k(x_\ast)} \mathbb{1}[y_i=c], $$
+</div>
+<p>and the class-probability estimate $\hat P(y=c\mid x_\ast)=\frac1k\sum_{i\in N_k(x_\ast)}\mathbb{1}[y_i=c]$.</p>
+
+<p><strong>Regression rule.</strong> Average the neighbours' targets:</p>
+$$ \hat y(x_\ast) = \frac1k\sum_{i\in N_k(x_\ast)} y_i. $$
+
+<p><strong>Distance weighting.</strong> Instead of counting all $k$ neighbours equally, weight each by closeness (a common choice $w_i=1/d(x_\ast,x_i)$, or a Gaussian kernel $w_i=e^{-d^2/2h^2}$):</p>
+$$ \hat y(x_\ast)=\frac{\sum_{i\in N_k}w_i\,y_i}{\sum_{i\in N_k}w_i}\quad(\text{regression}),\qquad \hat y(x_\ast)=\arg\max_c\sum_{i\in N_k}w_i\,\mathbb{1}[y_i=c]\quad(\text{classification}). $$
+<p>Weighting makes the prediction vary continuously as the query moves and lets you use a larger $k$ without letting distant, less-relevant points dominate.</p>
+
+<h2 id="s4">4. Derivation</h2>
+
+<p>KNN has no parameters to estimate, so "derivation" means understanding <em>why</em> the rule is statistically sound and what it converges to.</p>
+
+<h3>4.1 KNN as a local estimate of the conditional expectation</h3>
+<p>The optimal regression predictor under squared loss is the conditional mean $f(x)=\mathbb{E}[y\mid x]$; the optimal classifier under 0–1 loss is the Bayes rule $\arg\max_c P(y=c\mid x)$. Both require the unknown conditional distribution at $x_\ast$. KNN approximates it by a <em>local sample average</em>:</p>
+$$ \mathbb{E}[y\mid x_\ast]\approx\frac1k\sum_{i\in N_k(x_\ast)}y_i. $$
+<p>The justification: if $P(y\mid x)$ is continuous, then for $x$ near $x_\ast$ we have $P(y\mid x)\approx P(y\mid x_\ast)$, so the neighbours are approximately i.i.d. draws from the target distribution at $x_\ast$, and their sample average estimates its mean. It is a Monte Carlo estimate over a shrinking neighbourhood.</p>
+
+<h3>4.2 The bias–variance trade-off in $k$ (regression)</h3>
+<p>Model $y_i=f(x_i)+\varepsilon_i$ with $\mathbb{E}[\varepsilon_i]=0$, $\operatorname{Var}(\varepsilon_i)=\sigma^2$. The KNN estimate at $x_\ast$ is $\hat f(x_\ast)=\frac1k\sum_{i\in N_k}y_i$. Its variance and bias:</p>
+$$ \operatorname{Var}\big(\hat f(x_\ast)\big)=\frac{\sigma^2}{k}, \qquad \operatorname{Bias}\big(\hat f(x_\ast)\big)=\frac1k\sum_{i\in N_k}f(x_i)-f(x_\ast). $$
+<p>These two expressions contain the whole trade-off:</p>
+<ul>
+  <li><strong>Variance $=\sigma^2/k$</strong>: averaging more neighbours cuts variance like any sample mean. Larger $k$ → less variance.</li>
+  <li><strong>Bias</strong>: the average of the neighbours' true values minus the true value here. As $k$ grows, the neighbourhood widens to include points where $f$ differs from $f(x_\ast)$, so bias grows. Smaller $k$ → less bias.</li>
+</ul>
+<p>The optimal $k$ balances $\sigma^2/k$ against the squared bias, giving the same U-shaped total-error curve as every model in this course, now controlled by a single integer.</p>
+
+<h3>4.3 The Cover–Hart result (why even 1-NN is not naive)</h3>
+<p>Cover and Hart (1967) proved that as $n\to\infty$, the error rate of the 1-nearest-neighbour classifier, $R_{1\text{NN}}$, is bounded by</p>
+$$ R^\ast \le R_{1\text{NN}} \le R^\ast\left(2-\frac{M}{M-1}R^\ast\right)\le 2R^\ast, $$
+<p>where $R^\ast$ is the (optimal) Bayes error rate and $M$ the number of classes. In words: with infinite data, even the crude single-neighbour rule is <em>never worse than twice the best achievable error</em>. The intuition: as $n\to\infty$ the nearest neighbour of $x_\ast$ converges to $x_\ast$ itself, so it is effectively an independent draw from $P(y\mid x_\ast)$; the chance the query and its neighbour disagree is what produces the factor-of-two bound. The guarantee is <em>asymptotic</em>, which is why finite-sample, high-dimensional KNN can still perform poorly (§4.4).</p>
+
+<h3>4.4 The curse of dimensionality (derived)</h3>
+<p>KNN relies on neighbourhoods being <em>small</em> (so labels are locally constant) yet <em>populated</em> (so averages are stable). In high dimensions these two requirements collide. Consider $n$ points uniform in the unit hypercube $[0,1]^p$. To capture a fraction $r$ of the data in a hypercube neighbourhood, its side length must be</p>
+$$ \ell(r)=r^{1/p}. $$
+<p>To capture just 1% of the data ($r=0.01$) in $p=10$ dimensions requires $\ell=0.01^{0.1}\approx0.63$, a neighbourhood spanning <em>63% of the range of every feature</em>. The "local" neighbourhood is no longer local, so the smoothness assumption fails: the neighbours are far away and their labels need not resemble the query's.</p>
+<figure>
+<div class="fig-wrap">
+<svg viewBox="0 0 440 290" role="img" aria-label="Neighbourhood side length needed to capture a fixed fraction of data grows toward 1 as dimensionality increases">
+  <!-- axes -->
+  <line x1="60" y1="250" x2="410" y2="250" stroke="var(--border)" stroke-width="1.5"/>
+  <line x1="60" y1="30" x2="60" y2="250" stroke="var(--border)" stroke-width="1.5"/>
+  <text x="230" y="282" text-anchor="middle" font-family="sans-serif" font-size="11" fill="var(--muted)">dimensions p</text>
+  <text x="18" y="140" font-family="sans-serif" font-size="11" fill="var(--muted)" transform="rotate(-90 18 140)">neighbourhood side &#8467;</text>
+  <!-- y ticks -->
+  <text x="53" y="254" text-anchor="end" font-family="sans-serif" font-size="10" fill="var(--muted)">0</text>
+  <text x="53" y="145" text-anchor="end" font-family="sans-serif" font-size="10" fill="var(--muted)">0.5</text>
+  <text x="53" y="35" text-anchor="end" font-family="sans-serif" font-size="10" fill="var(--muted)">1.0</text>
+  <!-- x ticks -->
+  <text x="66.8" y="264" text-anchor="middle" font-family="sans-serif" font-size="9" fill="var(--muted)">1</text>
+  <text x="128" y="264" text-anchor="middle" font-family="sans-serif" font-size="9" fill="var(--muted)">10</text>
+  <text x="196" y="264" text-anchor="middle" font-family="sans-serif" font-size="9" fill="var(--muted)">20</text>
+  <text x="400" y="264" text-anchor="middle" font-family="sans-serif" font-size="9" fill="var(--muted)">50</text>
+  <!-- "whole range" reference line at side ~1 -->
+  <line x1="60" y1="30" x2="410" y2="30" stroke="var(--border)" stroke-width="0.8" stroke-dasharray="2 3"/>
+  <!-- r=0.01 curve -->
+  <polyline points="66.8,247.8 73.6,228 94,162.4 128,111.2 196,75.3 400,49.4"
+            fill="none" stroke="var(--accent)" stroke-width="2.4"/>
+  <text x="300" y="60" font-family="sans-serif" font-size="11" fill="var(--accent)">capture 1% of data</text>
+  <!-- r=0.1 curve -->
+  <polyline points="66.8,228 73.6,180.5 94,111.2 128,75.3 196,53.9 400,39.9"
+            fill="none" stroke="var(--accent-light)" stroke-width="2.4" stroke-dasharray="6 3"/>
+  <text x="300" y="95" font-family="sans-serif" font-size="11" fill="var(--accent-light)">capture 10% of data</text>
+  <!-- highlight p=10, r=1% -->
+  <circle cx="128" cy="111.2" r="4" fill="var(--accent)"/>
+  <text x="134" y="107" font-family="sans-serif" font-size="9" fill="var(--muted)">&#8467;&#8776;0.63 at p=10</text>
+</svg>
+</div>
+<figcaption>The curse of dimensionality made visible. To enclose even 1% of uniform data, a neighbourhood's side length &#8467; = r<sup>1/p</sup> approaches 1 (the whole range of every feature) as p grows; by p=10 it spans 63% of each axis. "Local" neighbourhoods stop being local, and the smoothness KNN relies on no longer holds.</figcaption>
+</figure>
+
+<p>Worse, distances <em>concentrate</em>. Under fairly general conditions on the data distribution (Beyer et al., 1999), as $p\to\infty$,</p>
+$$ \frac{\max_i d(x_\ast,x_i)-\min_i d(x_\ast,x_i)}{\min_i d(x_\ast,x_i)}\to 0, $$
+<p>meaning the nearest and farthest points become nearly equidistant: "nearest neighbour" loses meaning because there is no contrast between near and far. This is the main reason KNN (and distance-based methods generally) degrade in high dimensions, and why dimensionality reduction (<span class="plain-ref" title="Lecture 14 is released in Week 14">coming in Week 14</span>) or learned representations are often prerequisites.</p>
+
+<h2 id="s5">5. Algorithm</h2>
+
+<p><strong>Training</strong> (trivial, hence "lazy"): store $\mathcal{D}$, optionally build a spatial index (KD-tree / ball-tree) to speed up neighbour search.</p>
+
+<pre><code>Training:
+  1. Store all (x_i, y_i).            # O(1) "fitting"; optionally build KD/ball-tree
+
+Prediction for a query x*:
+  1. For each training point x_i, compute distance d(x*, x_i).   # brute force: O(np)
+     (or query the KD/ball-tree for the k nearest)
+  2. Select the k smallest distances → neighbour set N_k(x*).    # O(n log k) with a heap
+  3. Classification: return the (optionally distance-weighted) majority vote of {y_i : i ∈ N_k}.
+     Regression:     return the (optionally distance-weighted) mean of {y_i : i ∈ N_k}.
+  4. For probabilities: return class fractions among the k neighbours.</code></pre>
+
+<p><strong>Inputs:</strong> training data, $k$, distance metric (and $q$ for Minkowski), weighting scheme. <strong>Initialisation:</strong> none (no parameters). <strong>Stopping:</strong> none (one pass per query). <strong>Outputs:</strong> predicted label / value / class probabilities.</p>
+
+<p><strong>Ties.</strong> In classification, break class ties by the closer aggregate distance or a fixed order; in neighbour-distance ties, include all tied points or break arbitrarily. Choosing odd $k$ avoids two-class vote ties.</p>
+
+<h2 id="s6">6. Worked Numerical Example</h2>
+
+<p>Two features, binary classification. Training set:</p>
+
+<table>
+<thead><tr><th>$i$</th><th>$x_{i1}$</th><th>$x_{i2}$</th><th>$y_i$</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>1</td><td>1</td><td>A</td></tr>
+<tr><td>2</td><td>1</td><td>2</td><td>A</td></tr>
+<tr><td>3</td><td>2</td><td>2</td><td>A</td></tr>
+<tr><td>4</td><td>4</td><td>4</td><td>B</td></tr>
+<tr><td>5</td><td>5</td><td>4</td><td>B</td></tr>
+<tr><td>6</td><td>4</td><td>5</td><td>B</td></tr>
+</tbody>
+</table>
+
+<p>Query $x_\ast=(3,3)$. Use Euclidean distance.</p>
+
+<p><strong>Step 1: squared distances (compare via squares; monotone, avoids square roots):</strong></p>
+$$ d_1^2=(3-1)^2+(3-1)^2=4+4=8,\quad d_2^2=(3-1)^2+(3-2)^2=4+1=5, $$
+$$ d_3^2=(3-2)^2+(3-2)^2=1+1=2,\quad d_4^2=(3-4)^2+(3-4)^2=1+1=2, $$
+$$ d_5^2=(3-5)^2+(3-4)^2=4+1=5,\quad d_6^2=(3-4)^2+(3-5)^2=1+4=5. $$
+
+<p><strong>Step 2: actual distances:</strong> $d_1=2.83,\ d_2=2.24,\ d_3=1.41,\ d_4=1.41,\ d_5=2.24,\ d_6=2.24$.</p>
+
+<p><strong>Step 3: classify with $k=1$.</strong> The smallest distance is a <em>tie</em> between point 3 (class A) and point 4 (class B), both at $\sqrt2\approx1.41$. This is the query sitting exactly on the boundary between the clusters, a true tie that must be broken by a rule (e.g. lowest index → A). The example deliberately lands on the boundary to show how sensitive $k=1$ is.</p>
+
+<p><strong>Step 4: classify with $k=3$.</strong> The three smallest distances are $d_3=1.41$ (A), $d_4=1.41$ (B), and then a three-way tie at $2.24$ among $d_2$ (A), $d_5$ (B), $d_6$ (B). Taking $d_2$ (lowest index among the tied) gives neighbours {3:A, 4:B, 2:A} → votes A=2, B=1 → A. Taking $d_5$ or $d_6$ instead would give A=1, B=2 → B. The prediction is unstable because the query is equidistant from both clusters: predictions at boundary queries are inherently uncertain.</p>
+
+<p><strong>Step 5: distance-weighted $k=3$ (weights $1/d$).</strong> Using neighbours {3:A ($w=1/1.41=0.71$), 4:B ($0.71$), 2:A ($1/2.24=0.45$)}: class A weight $=0.71+0.45=1.16$, class B weight $=0.71$ → A. Weighting favours the closest points, and here it resolves the vote towards A.</p>
+
+<p><strong>Step 6: regression view.</strong> If instead the labels were numbers, say $y=(1,2,2,8,9,8)$, then unweighted $k=3$ prediction using {3,4,2}: $\hat y=(2+8+2)/3=4.0$. Distance-weighted: $\frac{0.71\cdot2+0.71\cdot8+0.45\cdot2}{0.71+0.71+0.45}=\frac{1.42+5.68+0.90}{1.87}=\frac{8.0}{1.87}\approx4.3$.</p>
+
+<h2 id="s7">7. Geometry and Visual Interpretation</h2>
+
+<p><strong>Voronoi tessellation ($k=1$).</strong> The 1-NN classifier partitions feature space into <em>Voronoi cells</em>: cell $i$ is the set of all points closer to $x_i$ than to any other training point. Each cell is a convex polygon (polytope in higher dimensions) bounded by perpendicular bisectors between neighbouring training points. Every query inside cell $i$ gets label $y_i$. The <em>decision boundary</em> is the union of those cell walls that separate differently-labelled cells: a jagged, piecewise-linear surface that hugs the training points. A good visualisation: coloured points with their Voronoi cells shaded by class, the class-change walls drawn bold.</p>
+
+<p><strong>Effect of $k$.</strong> As $k$ increases, the boundary smooths: instead of following individual cell walls it responds to local majorities, ironing out the jaggedness. At $k=1$ the boundary can wrap tightly around a single outlier (an island of the wrong colour); at large $k$ such islands are absorbed. In the limit $k=n$, every query gets the global majority class, a single flat prediction everywhere (maximum bias).</p>
+
+<p><strong>Neighbourhood shape depends on the metric.</strong> Euclidean neighbourhoods are spheres; Manhattan neighbourhoods are diamonds (rotated squares); Chebyshev are axis-aligned squares; Mahalanobis are ellipsoids oriented by the data covariance. The metric reshapes what "near" means, and hence the boundary.</p>
+
+<h2 id="s8">8. Statistical Interpretation</h2>
+
+<p><strong>A non-parametric density-ratio / regression estimator.</strong> KNN is closely related to kernel density estimation: instead of a fixed-bandwidth window it uses an <em>adaptive</em> bandwidth (the distance to the $k$-th neighbour), which is small in dense regions and large in sparse ones. The window therefore widens where data are sparse and narrows where they are dense, so every estimate rests on $k$ points.</p>
+
+<p><strong>Consistency.</strong> KNN is a <em>universally consistent</em> estimator (Stone, 1977): if $k\to\infty$ and $k/n\to0$ as $n\to\infty$ (the neighbourhood contains ever more points yet shrinks to a point), the KNN classifier's error converges to the Bayes-optimal error $R^\ast$ for essentially any distribution. The conditions encode the bias–variance balance: $k\to\infty$ kills variance, $k/n\to0$ kills bias.</p>
+
+<p><strong>Bias, variance, capacity.</strong> KNN's <em>effective number of parameters</em> is often taken as $n/k$: with $k=1$ the model has one "parameter" per data point (maximal capacity, minimal bias, maximal variance); with large $k$ it behaves like a low-capacity, high-bias model. This gives a clean way to compare KNN's flexibility to parametric models.</p>
+
+<p><strong>Uncertainty.</strong> The class fractions among neighbours give a rough posterior $\hat P(y=c\mid x_\ast)$, but these are <em>not</em> well-calibrated probabilities (they take only values $j/k$ and are noisy for small $k$). KNN offers no standard confidence intervals or hypothesis tests; it is a predictive tool, and in this respect it differs most from <a href="../01-linear-regression/">Lecture 1</a> and <a href="../02-logistic-regression/">Lecture 2</a>, where inference was central.</p>
+
+<h2 id="s9">9. Training and Optimisation</h2>
+
+<p><strong>There is no optimisation.</strong> KNN has no loss to minimise at training time and no parameters to fit; "training" is just storing the data (and optionally indexing it). All computation is deferred to prediction, which is why KNN is called a <em>lazy</em> learner. The consequence: training is instantaneous and the model updates trivially (just append new points), but every prediction pays the full search cost.</p>
+
+<p><strong>What <em>is</em> "learned" is chosen, not fitted.</strong> The design decisions ($k$, the distance metric, the weighting scheme and any feature scaling or selection) are hyperparameters selected by cross-validation (§10, §15). In practice the "training" of KNN is the hyperparameter search plus the preprocessing pipeline; the model itself is inert.</p>
+
+<p><strong>Speeding up neighbour search.</strong> The only computational "optimisation" is making search faster: <em>KD-trees</em> (recursive axis-aligned space partitioning; efficient for low $p$, degrade past $p\approx20$), <em>ball-trees</em> (nested hyperspheres; better for moderate $p$ and non-Euclidean metrics), and <em>approximate nearest neighbours</em> (LSH, HNSW graphs) that trade exactness for speed at scale. These change the <em>runtime</em>, not the <em>predictions</em> (except approximate methods, which may differ slightly).</p>
+
+<h2 id="s10">10. Hyperparameters</h2>
+
+<p><strong>$k$, the number of neighbours.</strong></p>
+<ul>
+  <li><em>Mathematically:</em> controls the size of the averaging neighbourhood; variance scales as $\sigma^2/k$, bias grows with the neighbourhood width.</li>
+  <li><em>Increasing $k$:</em> smoother decision boundary, more bias, less variance; less sensitive to noise and outliers; at $k=n$ predicts the global majority/mean.</li>
+  <li><em>Decreasing $k$:</em> more flexible, jagged boundary, less bias, more variance; at $k=1$ can fit (and overfit to) individual points and noise.</li>
+  <li><em>Cost:</em> larger $k$ slightly increases the aggregation work but the dominant search cost is unchanged. <em>Guidance:</em> tune by CV; a common starting heuristic is $k\approx\sqrt n$; use <em>odd</em> $k$ in binary classification to avoid vote ties.</li>
+</ul>
+
+<p><strong>Distance metric (and Minkowski order $q$).</strong> Determines the geometry of "near." Euclidean ($q=2$) is default; Manhattan ($q=1$) is less sensitive to outliers and often better in higher $p$; cosine for direction-dominated data (text/embeddings); Mahalanobis to account for correlation and scale. The metric is a substantive modelling choice: a poorly chosen one makes the neighbours uninformative.</p>
+
+<p><strong>Weighting scheme (<code>uniform</code> vs <code>distance</code>).</strong> Uniform counts all $k$ equally; distance-weighting ($w_i=1/d$ or a kernel) lets closer points matter more, reducing bias from including farther neighbours and allowing larger $k$. It reduces sensitivity to distant points but can over-trust a single very close point.</p>
+
+<p><strong>Feature scaling / weighting (effectively a hyperparameter).</strong> Because distance sums over features, the relative scaling of features <em>is</em> part of the model. Standardisation is close to mandatory, and learned feature weights or metric learning (e.g. LMNN, NCA) can improve results substantially (§13).</p>
+
+<p><strong>Search algorithm (<code>brute</code>, <code>kd_tree</code>, <code>ball_tree</code>).</strong> Affects speed, not predictions (for exact search). Choose by $p$ and metric.</p>
+
+<h2 id="s11">11. Bias–Variance Behaviour</h2>
+
+<ul>
+  <li><strong>Overfitting (high variance):</strong> small $k$ (especially $k=1$) makes the prediction hostage to the single nearest point, so noise and outliers create spurious islands in the decision boundary; train error is zero at $k=1$ (each point is its own nearest neighbour) but test error is high. This is the classic overfit signature.</li>
+  <li><strong>Underfitting (high bias):</strong> large $k$ averages over regions where the true label changes, blurring real structure; at $k=n$ the model is a constant. Both train and test error are high.</li>
+  <li><strong>Capacity</strong> $\approx n/k$: KNN is one of the highest-capacity models available at small $k$, which is why it needs abundant data and careful regularisation via $k$.</li>
+  <li><strong>Data-size sensitivity:</strong> KNN is <em>data-hungry</em>: its consistency guarantee is asymptotic, and in finite samples (especially high $p$) neighbourhoods are too sparse to be reliable. More data continues to help, whereas a parametric model's accuracy plateaus, but the required amount grows exponentially in $p$.</li>
+  <li><strong>Effect of irrelevant features:</strong> unlike trees, KNN cannot ignore useless features: every feature contributes to the distance, so noise dimensions directly inflate variance and degrade locality. Feature selection is a form of regularisation for KNN.</li>
+</ul>
+
+<h2 id="s12">12. Computational Complexity</h2>
+
+<p>Let $n$ = training points, $p$ = features, $k$ = neighbours, $m$ = number of queries.</p>
+<ul>
+  <li><strong>Training:</strong> $O(1)$ to store (brute force); $O(np\log n)$ to build a KD/ball-tree. Training is therefore nearly free.</li>
+  <li><strong>Prediction (brute force):</strong> $O(np)$ per query to compute all distances, plus $O(n\log k)$ to select the top $k$ with a heap → $O(np)$ dominates. For $m$ queries the cost is $O(mnp)$: every prediction scales with the size of the training set, which is the main scalability problem.</li>
+  <li><strong>Prediction (KD/ball-tree):</strong> roughly $O(p\log n)$ per query in <em>low</em> dimensions, but degrades towards brute-force $O(np)$ as $p$ grows (trees stop pruning effectively beyond roughly $p\approx20$, another consequence of the curse).</li>
+  <li><strong>Approximate NN (HNSW/LSH):</strong> sublinear query time, enabling KNN-style retrieval over millions of vectors (the basis of current vector search and retrieval-augmented generation).</li>
+  <li><strong>Memory:</strong> $O(np)$: the entire training set must be kept in memory, unlike parametric models storing only $O(p)$ coefficients. This is often the binding constraint in production.</li>
+</ul>
+<p><strong>Practical consequence:</strong> KNN is cheap to build but expensive and memory-heavy to serve. For large $n$ or high-throughput inference, use spatial indexes, approximate search, or switch to a parametric model that precompiles the data into a small parameter set.</p>
+
+<h2 id="s13">13. Data Preparation</h2>
+
+<ul>
+  <li><strong>Feature scaling: essential.</strong> Because distance adds contributions across features, a feature with a large numeric range dominates. <em>Example:</em> income (0–100000) and age (0–100) in raw units → distance is essentially income-only; age is invisible. Standardise (z-score) or min–max scale so features contribute comparably. Unlike OLS, here scaling changes the predictions themselves. (Contrast: <span class="plain-ref" title="Lecture 6 is released in Week 6">coming in Week 6</span> decision trees are scale-invariant.)</li>
+  <li><strong>Feature selection / dimensionality reduction: critical.</strong> Irrelevant features add noise to every distance and trigger the curse of dimensionality. Remove uninformative features, or project with PCA (<span class="plain-ref" title="Lecture 14 is released in Week 14">coming in Week 14</span>) before applying KNN.</li>
+  <li><strong>Categorical variables.</strong> One-hot encode and consider an appropriate metric (Euclidean on one-hot behaves oddly; Hamming or Gower distance may be better for mixed data).</li>
+  <li><strong>Outliers.</strong> Affect small-$k$ predictions strongly (an outlier can be someone's nearest neighbour); use larger $k$, distance weighting, or a metric less sensitive to outliers (Manhattan).</li>
+  <li><strong>Missing values.</strong> KNN needs complete vectors to compute distances; impute first (KNN itself is often used <em>for</em> imputation).</li>
+  <li><strong>Class imbalance.</strong> Majority voting is biased towards the frequent class (it dominates neighbourhoods); use distance weighting, class-balanced voting, or resampling.</li>
+</ul>
+<p><strong>Not necessary:</strong> no distributional assumptions, no linearity, no stationarity requirements. KNN assumes little about the <em>form</em> of the relationship; its demands concern <em>geometry</em>: scale, dimension and density.</p>
+
+<h2 id="s14">14. Evaluation</h2>
+
+<p>Use the standard metrics for the task; KNN's outputs are ordinary labels or values.</p>
+<ul>
+  <li><strong>Classification:</strong> accuracy, precision/recall/F1 (under imbalance), ROC-AUC / PR-AUC. Note KNN's probability estimates ($j/k$) are coarse and often <em>poorly calibrated</em>, so treat AUC/threshold analysis with care and calibrate if probabilities matter.</li>
+  <li><strong>Regression:</strong> MAE, MSE, RMSE, $R^2$, as in <a href="../01-linear-regression/">Lecture 1</a>.</li>
+</ul>
+<p><strong>Why metrics can mislead for KNN specifically:</strong></p>
+<ul>
+  <li><strong>Train accuracy is meaningless at $k=1$:</strong> it is always 100% (each training point is its own nearest neighbour), telling you nothing about generalisation. Always evaluate on held-out data.</li>
+  <li>Coarse, uncalibrated probabilities make log-loss and calibration-sensitive metrics look bad even when ranking/accuracy is fine.</li>
+  <li>Under imbalance, plain accuracy flatters the majority-vote bias.</li>
+</ul>
+
+<h2 id="s15">15. Validation Strategy</h2>
+<ul>
+  <li><strong>$k$-fold / stratified CV</strong> (note the two different $k$'s: folds and neighbours) to tune the number of neighbours, the metric, and the weighting jointly. Stratify for classification.</li>
+  <li><strong>Nested CV</strong> when reporting generalisation after tuning, to avoid optimistic bias.</li>
+  <li><strong>Grouped CV</strong> when records cluster: otherwise a near-duplicate of a test point in the training fold makes KNN look artificially perfect (a <em>leakage</em> risk that is especially severe for memory-based methods).</li>
+  <li><strong>Time-series validation</strong> for temporal data: never let future neighbours inform past predictions.</li>
+</ul>
+<p><strong>Leakage risks:</strong> (1) scaling/imputation must be fit inside each fold (fitting the scaler on all data leaks test statistics, and KNN is highly scale-sensitive). (2) Duplicate or near-duplicate rows across train/test folds let a point find "itself" as a neighbour, inflating performance substantially; deduplicate and use grouped splits.</p>
+
+<h2 id="s16">16. Diagnostics</h2>
+<ul>
+  <li><strong>Validation-error-vs-$k$ curve:</strong> the primary diagnostic: plot CV error against $k$; expect a U-shape, pick the minimum (or the largest $k$ within one standard error, for a smoother model).</li>
+  <li><strong>Decision-boundary plot (2D):</strong> visualise how the boundary jaggedness changes with $k$ to see over/underfitting directly.</li>
+  <li><strong>Distance-distribution check:</strong> histogram of nearest-neighbour distances; if the smallest and largest are similar, distances have concentrated → the curse of dimensionality is biting, KNN is unreliable.</li>
+  <li><strong>Confusion matrix / residual plots</strong> as for any classifier/regressor.</li>
+  <li><strong>Neighbour inspection:</strong> for a suspicious prediction, print the actual $k$ neighbours and their distances. KNN shows exactly <em>why</em> it predicted something: every prediction has concrete exemplars.</li>
+  <li><strong>Feature-scaling audit:</strong> verify per-feature variances are comparable post-scaling; a single dominant-variance feature signals a scaling bug.</li>
+</ul>
+
+<h2 id="s17">17. Strengths</h2>
+<ul>
+  <li><strong>No training / trivial updates.</strong> Fitting is $O(1)$; adding new labelled data is just an append, which suits streaming and online settings where the reference set grows.</li>
+  <li><strong>Non-parametric flexibility.</strong> Makes no assumption about the functional form; can represent arbitrarily complex decision boundaries given enough data, because the boundary is defined by the data itself.</li>
+  <li><strong>Conceptually simple and transparent.</strong> Every prediction is explained by concrete neighbours: "we predicted A because these three most-similar past cases were A", a form of example-based interpretability that many complex models lack.</li>
+  <li><strong>Naturally multi-class and multi-output.</strong> Voting/averaging extends to any number of classes or several targets at once with no change.</li>
+  <li><strong>Strong asymptotic guarantees.</strong> Universal consistency; even 1-NN is within a factor of two of Bayes error (§4.3).</li>
+  <li><strong>Adaptive resolution.</strong> The effective bandwidth (distance to the $k$-th neighbour) shrinks in dense regions and grows in sparse ones, using data efficiently where available.</li>
+  <li><strong>Foundation for retrieval.</strong> The same nearest-neighbour machinery powers recommendation, semantic search, and retrieval-augmented generation over embeddings.</li>
+</ul>
+
+<h2 id="s18">18. Weaknesses and Failure Modes</h2>
+<ul>
+  <li><strong>Curse of dimensionality.</strong> In high $p$, neighbourhoods stop being local and distances lose contrast (§4.4), so predictions become unreliable. <em>Example:</em> raw-pixel image KNN performs poorly; the same data through a learned embedding works; the fix is the representation, and changing $k$ does not help.</li>
+  <li><strong>Expensive, memory-heavy prediction.</strong> $O(np)$ per query and $O(np)$ storage; painful for large $n$ or low-latency serving. <em>Example:</em> a 10-million-row reference set makes each brute-force query prohibitively slow.</li>
+  <li><strong>Scale sensitivity.</strong> Unscaled features silently break the method (one feature dominates the distance). A common, easily-missed bug.</li>
+  <li><strong>Irrelevant features hurt directly.</strong> No built-in feature selection; noise dimensions degrade every distance.</li>
+  <li><strong>Sensitive to local noise at small $k$.</strong> A single mislabelled point creates a wrong-class island; outliers become spurious neighbours.</li>
+  <li><strong>Imbalanced classes.</strong> Majority voting favours frequent classes that flood neighbourhoods.</li>
+  <li><strong>Poorly calibrated probabilities.</strong> Outputs are coarse fractions $j/k$; not trustworthy as probabilities without calibration.</li>
+  <li><strong>No model to inspect globally.</strong> Unlike regression coefficients or tree splits, there is no compact summary of what drives predictions across the whole space, only per-query explanations.</li>
+</ul>
+
+<h2 id="s19">19. Comparison With Related Algorithms</h2>
+
+<table>
+<thead>
+<tr><th>Aspect</th><th>KNN</th><th>Logistic Regression / Linear SVM</th><th>Kernel SVM (RBF)</th><th>Decision Tree</th></tr>
+</thead>
+<tbody>
+<tr><td>Model type</td><td>non-parametric, lazy, local</td><td>parametric, global, linear</td><td>parametric-ish, global, nonlinear</td><td>non-parametric, hierarchical</td></tr>
+<tr><td>Training cost</td><td>$O(1)$ (store)</td><td>iterative fit</td><td>$O(n^2)$–$O(n^3)$</td><td>$O(np\log n)$</td></tr>
+<tr><td>Prediction cost</td><td>$O(np)$ (high)</td><td>$O(p)$ (low)</td><td>$O(n_{sv}\,p)$</td><td>$O(\text{depth})$ (low)</td></tr>
+<tr><td>Boundary</td><td>arbitrary (data-defined)</td><td>linear</td><td>smooth nonlinear</td><td>axis-aligned rectangles</td></tr>
+<tr><td>Scaling needed</td><td>yes (critical)</td><td>yes (for regularised)</td><td>yes</td><td>no</td></tr>
+<tr><td>Handles high $p$</td><td>poorly</td><td>well</td><td>moderately</td><td>moderately</td></tr>
+<tr><td>Interpretability</td><td>per-example</td><td>coefficients</td><td>low</td><td>rules (high)</td></tr>
+</tbody>
+</table>
+
+<p><strong>KNN vs SVM.</strong> Both can produce nonlinear boundaries, but KNN does so <em>locally and lazily</em> (store everything, decide at query time) while a kernel SVM does so <em>globally and eagerly</em> (solve a convex problem once, keep only support vectors, predict fast). Once fitted, SVM prediction is much cheaper, and its margin-based objective usually copes better with higher dimensions than raw distances do; KNN needs no training and adapts instantly to new data. Both are scale-sensitive. Rule of thumb: prefer KNN for small, low-dimensional, frequently-updated data; prefer SVM when you need fast prediction in higher dimensions.</p>
+
+<p><strong>KNN vs parametric models (<a href="../01-linear-regression/">Lecture 1</a>, <a href="../02-logistic-regression/">Lecture 2</a>).</strong> Parametric models compress the data into a few coefficients (cheap storage/prediction, strong assumptions, global structure, inference available); KNN keeps the data (no assumptions on form, expensive serving, local structure, no inference). KNN wins when the true relationship is complex and local and data are plentiful in low dimensions; parametric models win when structure is simple, data are scarce, or dimensions are high.</p>
+
+<p><strong>KNN and clustering (<span class="plain-ref" title="Lecture 12 is released in Week 12">coming in Week 12</span>, <span class="plain-ref" title="Lecture 13 is released in Week 13">coming in Week 13</span>).</strong> KNN is the <em>supervised</em> face of distance-based learning; K-Means and DBSCAN are its <em>unsupervised</em> cousins, using the same notion of proximity to group rather than to label. The "$k$" in KNN (neighbours) and K-Means (clusters) are unrelated, which is a common source of confusion.</p>
+
+<h2 id="s20">20. When I Should Use It</h2>
+
+<p><strong>Use KNN when:</strong></p>
+<ul>
+  <li>Dimensionality is low to moderate and data are plentiful and well scaled.</li>
+  <li>The decision boundary is complex or irregular and you don't want to specify a functional form.</li>
+  <li>You need a fast-to-build baseline or an instantly-updatable model (append new data, no retraining).</li>
+  <li>Example-based explanations are valuable ("here are the most similar past cases").</li>
+  <li>You are doing similarity retrieval or recommendation over embeddings (with an ANN index).</li>
+  <li>The task is naturally local (spatial interpolation, "find similar items").</li>
+</ul>
+
+<p><strong>Avoid KNN when:</strong></p>
+<ul>
+  <li>Dimensionality is high (raw high-dimensional features) and not reduced first; the curse dominates.</li>
+  <li>Prediction latency or memory is constrained and $n$ is large.</li>
+  <li>Many features are irrelevant or on incomparable scales you can't fix.</li>
+  <li>You need calibrated probabilities or statistical inference.</li>
+  <li>Data are scarce (neighbourhoods too sparse) or heavily imbalanced.</li>
+</ul>
+
+<h2 id="s21">21. Python Implementation From Scratch</h2>
+
+<pre><code>import numpy as np
+
+class KNNScratch:
+    """k-Nearest Neighbours for classification or regression, from NumPy."""
+
+    def __init__(self, k=5, task="classification", weights="uniform", p=2):
+        self.k = k
+        self.task = task
+        self.weights = weights      # "uniform" or "distance"
+        self.p = p                  # Minkowski order: 1=Manhattan, 2=Euclidean
+        self.X_ = None
+        self.y_ = None
+
+    def fit(self, X, y):
+        # "Training" = memorise the data. This is the entire fit step.
+        self.X_ = np.asarray(X, float)
+        self.y_ = np.asarray(y)
+        return self
+
+    def _distances(self, x):
+        # Minkowski distance from x to every stored point: (Σ|Δ|^p)^(1/p).
+        diff = np.abs(self.X_ - x)                       # broadcasting: (n, p)
+        return (diff ** self.p).sum(axis=1) ** (1.0 / self.p)
+
+    def _predict_one(self, x):
+        d = self._distances(x)
+        idx = np.argsort(d, kind="stable")[:self.k]     # k smallest; ties → lowest index (§6)
+        neigh_y = self.y_[idx]
+        neigh_d = d[idx]
+
+        if self.weights == "distance":
+            w = 1.0 / (neigh_d + 1e-12)                  # avoid divide-by-zero
+        else:
+            w = np.ones(self.k)
+
+        if self.task == "classification":
+            # Weighted vote: accumulate weight per class, take the argmax.
+            votes = {}
+            for label, weight in zip(neigh_y, w):
+                votes[label] = votes.get(label, 0.0) + weight
+            return max(votes, key=votes.get)
+        else:  # regression: weighted mean of neighbour targets
+            return np.dot(w, neigh_y.astype(float)) / w.sum()
+
+    def predict(self, X):
+        X = np.asarray(X, float)
+        return np.array([self._predict_one(x) for x in X])
+
+    def predict_proba(self, X):
+        # (Weighted) class fractions among the k neighbours, consistent with predict().
+        X = np.asarray(X, float)
+        classes = np.unique(self.y_)
+        out = []
+        for x in X:
+            d = self._distances(x)
+            idx = np.argsort(d, kind="stable")[:self.k]
+            w = 1.0 / (d[idx] + 1e-12) if self.weights == "distance" else np.ones(self.k)
+            out.append([w[self.y_[idx] == c].sum() / w.sum() for c in classes])
+        return np.array(out)
+
+# --- demo on the worked 2D example --------------------------------
+X = np.array([[1,1],[1,2],[2,2],[4,4],[5,4],[4,5]], float)
+y = np.array(["A","A","A","B","B","B"])
+model = KNNScratch(k=3, weights="distance").fit(X, y)
+print("prediction at (3,3):", model.predict([[3,3]]))
+print("neighbour fractions:", model.predict_proba([[3,3]]))</code></pre>
+
+<p><strong>Correspondence to the maths.</strong></p>
+<ul>
+  <li><code>fit</code> just stores the arrays: the lazy-learning "no training" of §9.</li>
+  <li><code>_distances</code> implements the Minkowski metric $d_q$ from §3 via broadcasting; <code>self.p</code> selects Euclidean/Manhattan.</li>
+  <li><code>np.argsort(d, kind="stable")[:self.k]</code> selects $N_k(x_\ast)$ (§3), breaking distance ties by lowest index as in §6. A full sort is $O(n\log n)$; a heap gives $O(n\log k)$ and <code>np.argpartition</code> gives $O(n)$.</li>
+  <li>The weighted vote/mean implements the distance-weighting formulas of §3, with <code>1/(d+eps)</code> as $w_i$.</li>
+</ul>
+
+<h2 id="s22">22. Production Python Implementation</h2>
+
+<pre><code>import numpy as np
+import pandas as pd
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_val_score
+from sklearn.metrics import classification_report
+
+# Scaling MUST live inside the pipeline so it is refit per CV fold (KNN is
+# acutely scale-sensitive; leaking the scaler biases results).
+pipe = Pipeline([
+    ("scale", StandardScaler()),
+    ("knn",   KNeighborsClassifier(algorithm="auto")),   # picks kd_tree/ball_tree/brute
+])
+
+param_grid = {
+    "knn__n_neighbors": [1, 3, 5, 7, 11, 15, 21],   # tune k
+    "knn__weights":     ["uniform", "distance"],
+    "knn__p":           [1, 2],                       # Manhattan vs Euclidean
+}
+
+grid = GridSearchCV(
+    pipe, param_grid,
+    scoring="f1_macro",                              # less affected by imbalance than accuracy
+    cv=StratifiedKFold(5, shuffle=True, random_state=0),
+    n_jobs=-1,
+)
+grid.fit(X_train, y_train)
+print("best params:", grid.best_params_)
+print(classification_report(y_test, grid.predict(X_test)))
+
+# ---- Large-scale approximate nearest neighbours (vector search) ----
+# For millions of vectors, brute-force KNN is too slow; use an ANN index.
+# Example with FAISS (conceptual):
+# import faiss
+# index = faiss.IndexHNSWFlat(dim, 32)      # HNSW graph, sublinear query time
+# index.add(X_ref.astype('float32'))        # "train" = add reference vectors
+# D, I = index.search(X_query.astype('float32'), k)   # k nearest per query
+# then vote/average the labels y_ref[I] as usual.</code></pre>
+
+<p><strong>Notes.</strong> Put <code>StandardScaler</code> in the pipeline (never scale before splitting). Use <code>algorithm="auto"</code> to let scikit-learn pick KD-tree/ball-tree/brute by dimensionality and metric. For production-scale retrieval, replace exact search with an ANN library (FAISS, hnswlib, Annoy); the modelling logic (find $k$ nearest, aggregate labels) is identical.</p>
+
+<h2 id="s23">23. Library Parameters Mapped to Mathematics</h2>
+
+<p><strong><code>sklearn.neighbors.KNeighborsClassifier / KNeighborsRegressor</code></strong></p>
+<ul>
+  <li><code>n_neighbors</code> (this is $k$): the neighbourhood size. Directly the bias–variance dial: variance $\propto1/k$, bias grows with $k$ (§4.2, §11). Small $k$ = high capacity/overfit; large $k$ = smooth/underfit.</li>
+  <li><code>weights</code>: <code>'uniform'</code> gives every neighbour equal vote (the plain rule); <code>'distance'</code> sets $w_i=1/d_i$ (the weighted formulas of §3), letting closer points dominate and enabling larger $k$ without over-smoothing.</li>
+  <li><code>p</code> and <code>metric</code>: the Minkowski order and metric of §3: <code>p=2</code> Euclidean (spherical neighbourhoods), <code>p=1</code> Manhattan (diamond neighbourhoods, less sensitive to outliers), or a named/custom <code>metric</code> (cosine, Mahalanobis, Hamming). Reshapes what "near" means (§7).</li>
+  <li><code>algorithm</code>: <code>'brute'</code>, <code>'kd_tree'</code>, <code>'ball_tree'</code>, <code>'auto'</code>: the <em>search</em> strategy (§9, §12). Changes runtime, not predictions (for exact search). KD-tree for low $p$, ball-tree for moderate $p$/other metrics, brute for high $p$ or small $n$.</li>
+  <li><code>leaf_size</code>: tree leaf granularity: a speed/memory tuning knob for KD/ball-trees; smaller leaves = deeper trees, no effect on predictions.</li>
+  <li><code>metric_params</code>: extra metric arguments (e.g. <code>{'VI': ...}</code>, the inverse covariance $\Sigma^{-1}$, for Mahalanobis, giving the correlation-aware ellipsoidal neighbourhoods of §7).</li>
+</ul>
+
+<h2 id="s24">24. Common Interview Questions</h2>
+
+<p><strong>1. Why is KNN called a "lazy" and "non-parametric" learner?</strong><br>
+Lazy: it does no work at training time (just stores data) and defers all computation to prediction. Non-parametric: it has no fixed set of parameters; its effective complexity ($\approx n/k$) grows with the data, so it can represent arbitrarily complex boundaries.</p>
+
+<p><strong>2. How does $k$ affect bias and variance? What happens at the extremes?</strong><br>
+Variance $\propto\sigma^2/k$ (larger $k$ → less variance), bias grows with $k$ (wider neighbourhoods include dissimilar points). At $k=1$: zero bias in the limit but maximal variance and zero training error (overfit); at $k=n$: predicts the global majority/mean (maximal bias, minimal variance).</p>
+
+<p><strong>3. Explain the curse of dimensionality for KNN, with a number.</strong><br>
+To capture a fraction $r$ of uniform data needs a hypercube of side $r^{1/p}$; for $r=1\%$ and $p=10$ the side is $\approx0.63$, 63% of each feature's range, so "neighbours" aren't local. Distances also concentrate (nearest ≈ farthest), destroying the near/far contrast KNN depends on.</p>
+
+<p><strong>4. Why must you scale features for KNN but not for decision trees?</strong><br>
+KNN's distance sums feature differences, so a large-range feature dominates and small-range features become invisible, so scaling changes the predictions. Trees split one feature at a time using thresholds, which are invariant to monotone rescaling, so scaling doesn't affect them.</p>
+
+<p><strong>5. What is the Cover–Hart result and why is it surprising?</strong><br>
+As $n\to\infty$, 1-NN error is at most twice the Bayes error. Surprising because the crudest possible rule (copy the single nearest label) is guaranteed within a factor of two of the theoretical optimum: the nearest neighbour becomes an independent draw from $P(y\mid x_\ast)$.</p>
+
+<p><strong>6. Your KNN gets 100% training accuracy but poor test accuracy. Diagnose.</strong><br>
+Almost certainly $k=1$ (or very small $k$): each training point is its own nearest neighbour, so training accuracy is trivially perfect, an overfit, high-variance model. Increase $k$ (tune by CV), add distance weighting, and check for unscaled/irrelevant features.</p>
+
+<p><strong>7. How do you choose the distance metric?</strong><br>
+By the data's geometry and CV: Euclidean for continuous comparable features, Manhattan for outlier resistance or high $p$, cosine for direction-dominated data (text/embeddings), Mahalanobis for correlated features, Hamming/Gower for categorical/mixed. The metric is a substantive modelling choice, tuned like any hyperparameter.</p>
+
+<p><strong>8. Why is KNN slow at prediction and how do you speed it up?</strong><br>
+Each query computes distances to all $n$ points: $O(np)$, and stores all data: $O(np)$ memory. Speed-ups: KD/ball-trees (low/moderate $p$), approximate NN (HNSW/LSH) for large-scale sublinear search, dimensionality reduction, or prototype/condensed-NN methods that keep a subset.</p>
+
+<p><strong>9. Is KNN affected by class imbalance? How do you mitigate it?</strong><br>
+Yes: majority voting favours frequent classes that flood neighbourhoods. Mitigate with distance weighting, class-balanced/priors-adjusted voting, resampling, or adjusting the decision rule using class priors.</p>
+
+<p><strong>10. Are KNN's predicted probabilities trustworthy?</strong><br>
+Not very: they are coarse fractions $j/k$ (only $k{+}1$ possible values) and noisy for small $k$, hence poorly calibrated. If you need probabilities, use large $k$ with distance weighting and apply post-hoc calibration, or choose a probabilistic model.</p>
+
+<p><strong>11. (Debugging) Adding more features made KNN worse. Why?</strong><br>
+Irrelevant features add noise to every distance and push you into higher dimensions (curse), diluting locality; KNN has no built-in feature selection. Remove uninformative features or reduce dimensionality (PCA); consider metric learning to down-weight noise dimensions.</p>
+
+<p><strong>12. Contrast the "$k$" in KNN with the "k" in K-Means.</strong><br>
+Unrelated. In KNN, $k$ is the number of <em>neighbours</em> consulted per prediction (a supervised smoothing parameter). In K-Means, $k$ is the number of <em>clusters</em> (an unsupervised structural choice). Same letter, different meaning.</p>
+
+<h2 id="s25">25. Common Misconceptions</h2>
+<ol>
+  <li><strong>"KNN has no hyperparameters because it doesn't train."</strong> It has several important ones ($k$, the metric, the weighting and the implicit feature scaling), all chosen by cross-validation. The absence of <em>fitted parameters</em> is not the absence of <em>design choices</em>.</li>
+  <li><strong>"Bigger $k$ is always safer."</strong> Too-large $k$ over-smooths, averaging across real class boundaries and raising bias; at $k=n$ you predict a constant. There is an optimal intermediate $k$.</li>
+  <li><strong>"KNN works out of the box on any data."</strong> It silently fails on unscaled features, high dimensions, and irrelevant features, none of which raise errors; they degrade accuracy without warning. Preprocessing is decisive.</li>
+  <li><strong>"$k=1$ overfits, so it's useless."</strong> 1-NN has strong asymptotic guarantees (≤ 2× Bayes error) and works well with abundant, low-noise, low-dimensional data; it's high-variance, not worthless.</li>
+  <li><strong>"KNN's class fractions are proper probabilities."</strong> They're coarse, quantised ($j/k$) and typically miscalibrated: usable for ranking, unreliable as calibrated probabilities without adjustment.</li>
+  <li><strong>"Training is expensive."</strong> Training is essentially free ($O(1)$ to store); it's <em>prediction</em> that is expensive. KNN inverts the usual cost profile.</li>
+</ol>
+
+<h2 id="s26">26. Exercises</h2>
+
+<h3>Level 1: Conceptual</h3>
+<ol>
+  <li>Explain why KNN is called lazy, non-parametric, and instance-based, defining each term.</li>
+  <li>Describe qualitatively what happens to the decision boundary as $k$ goes from 1 to $n$.</li>
+  <li>Why is feature scaling essential for KNN but irrelevant for decision trees?</li>
+  <li>Give two concrete symptoms that the curse of dimensionality is harming your KNN model.</li>
+  <li>Explain, using the Voronoi picture, why 1-NN has zero training error.</li>
+</ol>
+
+<h3>Level 2: Mathematical</h3>
+<ol>
+  <li>For KNN regression with $y_i=f(x_i)+\varepsilon_i$, derive $\operatorname{Var}(\hat f)=\sigma^2/k$ and write the bias term; explain how each depends on $k$.</li>
+  <li>Compute the hypercube side length needed to capture 10% of uniform data in $p=1,2,10,50$ dimensions, and comment.</li>
+  <li>State the Cover–Hart bound and explain the intuition behind the factor of two.</li>
+  <li>Given training points $x=(0,0),(2,0),(0,2),(3,3)$ with classes A,A,A,B and query $(1,1)$, compute Euclidean distances and classify with $k=1$ and $k=3$.</li>
+  <li>Show that for one-hot encoded binary features, squared Euclidean distance equals (a constant times) the Hamming distance; what does this imply about metric choice for categorical data?</li>
+</ol>
+
+<h3>Level 3: Applied</h3>
+<ol>
+  <li>Implement KNN from scratch and reproduce scikit-learn's predictions on a dataset; then swap in <code>np.argpartition</code> and measure the speed-up over full sorting.</li>
+  <li>On a real dataset, plot CV error vs $k$ for uniform and distance weighting; identify the optimal $k$ and justify with the bias–variance story.</li>
+  <li>Demonstrate the curse of dimensionality empirically: fix $n$, add increasing numbers of pure-noise features, and plot test accuracy vs number of noise features.</li>
+  <li>Compare KNN accuracy with and without <code>StandardScaler</code> on data with features of very different scales; quantify the difference.</li>
+  <li>Build an approximate-NN pipeline (e.g. hnswlib) over sentence/image embeddings and compare its retrieval quality and speed to brute-force KNN.</li>
+</ol>
+
+<h2 id="s26s">26(s). Solutions</h2>
+
+<h3>Level 1</h3>
+<ol>
+  <li>Lazy = no training-time computation, all work deferred to query time; non-parametric = no fixed parameter count, complexity grows with data; instance-based = predictions are computed directly from stored training instances rather than a learned summary.</li>
+  <li>At $k=1$ the boundary is jagged, wrapping around individual points (including noise/outliers); as $k$ grows it smooths and simplifies; at $k=n$ it vanishes: every query gets the global majority/mean.</li>
+  <li>KNN sums feature differences into a distance, so a large-range feature dominates and rescaling changes which points are "nearest" (and thus the prediction). Trees split on per-feature thresholds, invariant to monotone rescaling, so scaling has no effect.</li>
+  <li>(1) Nearest-neighbour distances are nearly all equal (distance concentration); (2) adding more features degrades rather than improves accuracy; also: predictions barely change with $k$, and neighbourhoods span most of each feature's range.</li>
+  <li>Each training point lies in its own Voronoi cell and is its own nearest neighbour (distance 0), so 1-NN returns each training point's own label, giving zero training error by construction (and hence a useless training metric).</li>
+</ol>
+
+<h3>Level 2</h3>
+<ol>
+  <li>$\hat f=\frac1k\sum_{i\in N_k}y_i=\frac1k\sum(f(x_i)+\varepsilon_i)$. Variance: $\operatorname{Var}(\frac1k\sum\varepsilon_i)=\frac1{k^2}\cdot k\sigma^2=\sigma^2/k$ (independent errors). Bias: $\frac1k\sum_{i\in N_k}f(x_i)-f(x_\ast)$, the mismatch between the neighbours' true mean and the target value; it grows as $k$ widens the neighbourhood, while variance $\sigma^2/k$ shrinks.</li>
+  <li>Side $=0.1^{1/p}$: $p=1\to0.10$; $p=2\to0.316$; $p=10\to0.794$; $p=50\to0.955$. By $p=10$ a "10% neighbourhood" spans ~79% of every feature, so it is not local; by $p=50$ it's essentially the whole cube. Locality is impossible in high dimensions.</li>
+  <li>$R^\ast\le R_{1\text{NN}}\le2R^\ast$ (two-class): as $n\to\infty$ the nearest neighbour $\to x_\ast$, becoming an independent label draw from $P(y\mid x_\ast)$; query and neighbour disagree with probability up to $2R^\ast(1-R^\ast)\le2R^\ast$, hence the factor of two.</li>
+  <li>Distances from $(1,1)$: to $(0,0)$ $\sqrt2\approx1.41$ (A); $(2,0)$ $\sqrt2\approx1.41$ (A); $(0,2)$ $\sqrt2\approx1.41$ (A); $(3,3)$ $\sqrt8\approx2.83$ (B). $k=1$: nearest is a three-way tie among A points → A. $k=3$: the three nearest are all A → A.</li>
+  <li>For 0/1 vectors, $(x_j-x'_j)^2=|x_j-x'_j|$ (since differences are 0 or 1), so $\sum_j(x_j-x'_j)^2=\sum_j\mathbb{1}[x_j\ne x'_j]=$ Hamming distance. Squared Euclidean on one-hot data <em>is</em> Hamming, so for purely categorical data Euclidean/Hamming coincide, but mixing scaled continuous and one-hot features needs care (e.g. Gower distance) to balance their contributions.</li>
+</ol>
+
+<h3>Level 3</h3>
+<ol>
+  <li>Predictions match scikit-learn exactly (same metric, same $k$, ties aside); replacing <code>np.argsort</code> ($O(n\log n)$) with <code>np.argpartition</code> ($O(n)$ selection) gives a measurable speed-up that grows with $n$, since only the top-$k$ order matters.</li>
+  <li>Error vs $k$ is U-shaped: high at $k=1$ (variance), rising again at large $k$ (bias); distance weighting typically flattens the right side (large $k$ hurts less because far points are down-weighted). Optimal $k$ sits at the minimum.</li>
+  <li>Test accuracy falls steadily as noise features are added: each inflates distances with irrelevant variation and dilutes locality, which shows the curse and KNN's lack of feature selection.</li>
+  <li>Without scaling, accuracy is dominated by the largest-range feature and typically much worse; with <code>StandardScaler</code> it improves substantially; scaling is often the largest single improvement available for KNN on heterogeneous data.</li>
+  <li>ANN retrieval matches brute-force top-$k$ for the vast majority of queries (high recall@k) at a fraction of the latency, with a tunable speed/recall trade-off (e.g. HNSW <code>ef</code>), which is how vector search works in practice.</li>
+</ol>
+
+<h2 id="s27">27. Summary Cheat Sheet: k-Nearest Neighbours</h2>
+
+<table>
+<thead><tr><th>Attribute</th><th>Summary</th></tr></thead>
+<tbody>
+<tr><td><strong>Problem type</strong></td><td>Supervised classification or regression (non-parametric, lazy, local)</td></tr>
+<tr><td><strong>Model</strong></td><td>Predict from the $k$ nearest stored points; no fitted parameters</td></tr>
+<tr><td><strong>Prediction rule</strong></td><td>Class: (weighted) majority vote; Regression: (weighted) mean of neighbours</td></tr>
+<tr><td><strong>Distance</strong></td><td>Minkowski $d_q=(\sum_j|x_j-x'_j|^q)^{1/q}$; $q{=}2$ Euclidean, $q{=}1$ Manhattan; cosine/Mahalanobis</td></tr>
+<tr><td><strong>Objective</strong></td><td>None fitted; approximates $\mathbb{E}[y\mid x]$ / Bayes rule locally</td></tr>
+<tr><td><strong>Key assumptions</strong></td><td>Local smoothness, meaningful metric, comparable scales, sufficient density</td></tr>
+<tr><td><strong>Hyperparameters</strong></td><td>$k$, metric ($q$), weighting (uniform/distance), scaling, search algorithm</td></tr>
+<tr><td><strong>Scaling required?</strong></td><td>Yes: critical (distance mixes features)</td></tr>
+<tr><td><strong>Handles nonlinearities?</strong></td><td>Yes: arbitrary, data-defined boundaries</td></tr>
+<tr><td><strong>Handles categoricals?</strong></td><td>Via encoding + appropriate metric (Hamming/Gower)</td></tr>
+<tr><td><strong>Interpretable?</strong></td><td>Per-example (shows the actual neighbours); no global summary</td></tr>
+<tr><td><strong>Training cost</strong></td><td>$O(1)$ store (or $O(np\log n)$ to index)</td></tr>
+<tr><td><strong>Prediction cost</strong></td><td>$O(np)$ per query (brute); $O(np)$ memory</td></tr>
+<tr><td><strong>Main advantages</strong></td><td>No training, flexible, transparent, strong asymptotics, instantly updatable</td></tr>
+<tr><td><strong>Major weaknesses</strong></td><td>Curse of dimensionality, slow/memory-heavy prediction, scale/noise-sensitive, poor calibration</td></tr>
+<tr><td><strong>Ideal use cases</strong></td><td>Low-dim, data-rich, local problems; similarity retrieval/recommendation over embeddings</td></tr>
+</tbody>
+</table>
+
+<p><strong>Connections to carry forward:</strong> KNN introduces <em>distance as a model</em>: the idea that proximity in feature space encodes similarity in outcome. The same idea underlies the distance-based family: K-Means (<span class="plain-ref" title="Lecture 12 is released in Week 12">coming in Week 12</span>) and DBSCAN (<span class="plain-ref" title="Lecture 13 is released in Week 13">coming in Week 13</span>) reuse it for unsupervised clustering; kernel methods and SVMs (<span class="plain-ref" title="Lecture 5 is released in Week 5">coming in Week 5</span>) replace explicit distances with inner products in feature space; and embedding-based approximate nearest-neighbour retrieval, used in recommendation and retrieval-augmented generation, is KNN at industrial scale. KNN also gives the clearest illustration in the course of the <em>curse of dimensionality</em>, motivating PCA and representation learning (<span class="plain-ref" title="Lecture 14 is released in Week 14">coming in Week 14</span> onward): much of machine learning is about finding good low-dimensional features because raw high-dimensional distances carry little information. KNN is also the clearest case of a bias–variance trade-off controlled by a single parameter, $k$.</p>
+</main>
+</div>
+</body>
+</html>

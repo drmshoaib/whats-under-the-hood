@@ -387,7 +387,7 @@ $$ \text{RSS}(\beta) = \sum_{i=1}^n \big(y_i - \tilde x_i^\top \beta\big)^2 = \|
 <p><strong>Probabilistic form (likelihood).</strong> Under Gaussian noise, each observation has density</p>
 $$ p(y_i \mid x_i, \beta, \sigma^2) = \frac{1}{\sqrt{2\pi\sigma^2}} \exp\!\left(-\frac{(y_i - \tilde x_i^\top\beta)^2}{2\sigma^2}\right). $$
 <p>By independence the <em>likelihood</em> is the product, and the <em>log-likelihood</em> is</p>
-$$ \ell(\beta, \sigma^2) = -\frac{n}{2}\log(2\pi\sigma^2) - \frac{1}{2\sigma^2}\sum_{i=1}^n (y_i - x_i^\top\beta)^2 = -\frac{n}{2}\log(2\pi\sigma^2) - \frac{\text{RSS}(\beta)}{2\sigma^2}. $$
+$$ \ell(\beta, \sigma^2) = -\frac{n}{2}\log(2\pi\sigma^2) - \frac{1}{2\sigma^2}\sum_{i=1}^n (y_i - \tilde x_i^\top\beta)^2 = -\frac{n}{2}\log(2\pi\sigma^2) - \frac{\text{RSS}(\beta)}{2\sigma^2}. $$
 <p>Because only the last term depends on $\beta$, and it is $-\text{RSS}/(2\sigma^2)$, maximising $\ell$ over $\beta$ is the same as minimising RSS. Least squares $\equiv$ Gaussian MLE.</p>
 
 <p><strong>Regularised variants</strong> (introduced now, expanded in §19):</p>
@@ -677,7 +677,7 @@ $$ \mathbb{E}\big[(y_0 - \hat f(x_0))^2\big] = \underbrace{\big(\mathbb{E}[\hat 
   <li><strong>Skewed targets/features:</strong> log-transforming a right-skewed positive target often restores homoscedasticity and linearity simultaneously.</li>
 </ul>
 
-<p><strong>Scaling / standardisation:</strong> <em>Not required for plain OLS correctness</em>: the closed-form solution is invariant to linear rescaling of features (coefficients simply rescale to compensate). It is required for (a) ridge/lasso, where the penalty is scale-dependent, (b) gradient-descent fitting, where it fixes conditioning and speeds convergence, and (c) comparing coefficient magnitudes as "importances." Contrast this with k-nearest neighbours (<span class="plain-ref" title="Lecture 3 is released in Week 3">coming in Week 3</span>) and SVMs (<span class="plain-ref" title="Lecture 5 is released in Week 5">coming in Week 5</span>), where scaling changes the fitted model itself.</p>
+<p><strong>Scaling / standardisation:</strong> <em>Not required for plain OLS correctness</em>: the closed-form solution is invariant to linear rescaling of features (coefficients simply rescale to compensate). It is required for (a) ridge/lasso, where the penalty is scale-dependent, (b) gradient-descent fitting, where it fixes conditioning and speeds convergence, and (c) comparing coefficient magnitudes as "importances." Contrast this with k-nearest neighbours (<a href="../03-k-nearest-neighbours/">Lecture 3</a>) and SVMs (<span class="plain-ref" title="Lecture 5 is released in Week 5">coming in Week 5</span>), where scaling changes the fitted model itself.</p>
 
 <p><strong>Time ordering / stationarity:</strong> only relevant if data are temporal, in which case independence of errors is suspect and you'd move towards time-series methods (<span class="plain-ref" title="Lecture 18 is released in Week 18">coming in Week 18</span>).</p>
 
@@ -1018,7 +1018,7 @@ Replace squared loss with Huber loss (quadratic near zero, linear in the tails),
   <li>Starting from $\text{RSS}(\beta)=(y-X\beta)^\top(y-X\beta)$, derive the gradient and Hessian, and prove the solution is a global minimum when $X$ has full column rank.</li>
   <li>Show that the hat matrix $H=X(X^\top X)^{-1}X^\top$ is symmetric and idempotent, and prove $\operatorname{trace}(H)=p+1$.</li>
   <li>Derive $\operatorname{Var}(\hat\beta\mid X)=\sigma^2(X^\top X)^{-1}$ from $\hat\beta=\beta+(X^\top X)^{-1}X^\top\varepsilon$.</li>
-  <li>For ridge on a centred, <em>intercept-free</em> design, $hat\beta_\lambda=(X^\top X+\lambda I)^{-1}X^\top y$. Show that as $\lambda\to\infty$ the coefficients tend to zero; derive $\operatorname{Var}(\hat\beta_\lambda)$ and compare it with OLS. Explain how the unpenalised-intercept version instead uses $P$ from §10.</li>
+  <li>For ridge on a centred, <em>intercept-free</em> design, $\hat\beta_\lambda=(X^\top X+\lambda I)^{-1}X^\top y$. Show that as $\lambda\to\infty$ the coefficients tend to zero; derive $\operatorname{Var}(\hat\beta_\lambda)$ and compare it with OLS. Explain how the unpenalised-intercept version instead uses $P$ from §10.</li>
   <li>Given the data $(0,1),(1,3),(2,3),(3,5)$, compute $\hat\beta_0,\hat\beta_1$, the residuals, RSS, and $R^2$ by hand.</li>
 </ol>
 
