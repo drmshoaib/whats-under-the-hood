@@ -32,6 +32,7 @@ Lectures are released one at a time alongside the LinkedIn newsletter.
 | 01 | Linear Regression | What does fit() actually solve? | [Read lecture](https://drmshoaib.github.io/whats-under-the-hood/01-linear-regression/) |
 | 02 | Logistic Regression | Why is a probability the output of a linear model? | [Read lecture](https://drmshoaib.github.io/whats-under-the-hood/02-logistic-regression/) |
 | 03 | k-Nearest Neighbours | How far can you get with no model at all? | [Read lecture](https://drmshoaib.github.io/whats-under-the-hood/03-k-nearest-neighbours/) |
+| 04 | Naive Bayes | Why does a wrong independence assumption still work? | [Read lecture](https://drmshoaib.github.io/whats-under-the-hood/04-naive-bayes/) |
 
 ## Repository structure
 
@@ -44,6 +45,8 @@ whats-under-the-hood/
 ├── 02-logistic-regression/
 │   └── index.html
 ├── 03-k-nearest-neighbours/
+│   └── index.html
+├── 04-naive-bayes/
 │   └── index.html
 ├── assets/
 ├── index.html

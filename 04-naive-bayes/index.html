@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="description" content="What's Under the Hood? #04: Bayes’ theorem, conditional independence, Gaussian/Multinomial/Bernoulli variants, and why it works anyway.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="#04 Naive Bayes · What&#x27;s Under the Hood?">
+<meta property="og:description" content="Bayes’ theorem, conditional independence, Gaussian/Multinomial/Bernoulli variants, and why it works anyway.">
+<meta property="og:url" content="https://drmshoaib.github.io/whats-under-the-hood/04-naive-bayes/">
+<meta property="og:image" content="https://drmshoaib.github.io/whats-under-the-hood/04-naive-bayes/cover-04-naive-bayes.png">
+<meta property="og:image:width" content="1920">
+<meta property="og:image:height" content="1080">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="author" content="Dr. Muhammad Shoaib">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#04 Naive Bayes · What's Under the Hood?</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #555;
+    --accent: #1f4e79;
+    --accent-light: #2e6da4;
+    --border: #d8dee4;
+    --code-bg: #f5f7f9;
+    --table-stripe: #f6f8fa;
+    --box-bg: #f0f6ff;
+    --box-border: #b8d4f0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a;
+      --fg: #e6e6e6;
+      --muted: #a8b0b8;
+      --accent: #7fb8e6;
+      --accent-light: #9cc9ee;
+      --border: #333a42;
+      --code-bg: #1d2226;
+      --table-stripe: #1b1f23;
+      --box-bg: #16232e;
+      --box-border: #2a4a63;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0;
+    font-size: 18px;
+  }
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 28px 120px;
+  }
+  header.title {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 20px;
+    margin-bottom: 40px;
+  }
+  header.title h1 {
+    font-size: 2.2rem;
+    margin: 0 0 6px;
+    color: var(--accent);
+    line-height: 1.2;
+  }
+  header.title .subtitle {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 1.05rem;
+  }
+  h2 {
+    color: var(--accent);
+    font-size: 1.6rem;
+    margin-top: 2.4em;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    color: var(--accent-light);
+    font-size: 1.25rem;
+    margin-top: 1.8em;
+  }
+  h4 {
+    font-size: 1.08rem;
+    margin-top: 1.4em;
+    color: var(--fg);
+  }
+  p { margin: 0.9em 0; }
+  a { color: var(--accent-light); }
+  strong { color: var(--fg); }
+  code {
+    font-family: "SF Mono", "Consolas", "Menlo", monospace;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    font-size: 0.82rem;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1.4em 0;
+    font-size: 0.92rem;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    display: block;
+    overflow-x: auto;
+    white-space: normal;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+  tbody tr:nth-child(even) { background: var(--table-stripe); }
+  blockquote {
+    border-left: 4px solid var(--accent-light);
+    margin: 1.2em 0;
+    padding: 4px 18px;
+    color: var(--muted);
+    background: var(--box-bg);
+    border-radius: 0 6px 6px 0;
+  }
+  ul, ol { padding-left: 1.6em; }
+  li { margin: 0.4em 0; }
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2.5em 0;
+  }
+  .box {
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 8px;
+    padding: 4px 20px;
+    margin: 1.4em 0;
+  }
+  .toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 26px;
+    margin-bottom: 40px;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 0.9rem;
+  }
+  .toc h2 {
+    border: none;
+    margin: 0 0 10px;
+    font-size: 1.15rem;
+    padding: 0;
+  }
+  .toc ol { columns: 2; column-gap: 36px; margin: 0; }
+  .toc a { text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  mjx-container { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+  figure { margin: 1.8em 0; }
+  .fig-wrap {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 18px 10px;
+  }
+  figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 10px;
+    font-style: italic;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    text-align: center;
+  }
+</style>
+<style id="layout-override">
+  .wrap { display:flex; max-width:none; margin:0; padding:0; align-items:flex-start; }
+  .sidebar { position:sticky; top:0; align-self:flex-start; width:290px; min-width:290px;
+    height:100vh; overflow-y:auto; padding:24px 20px; border-right:1px solid var(--border);
+    background:var(--code-bg); font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; }
+  .content { flex:1; min-width:0; padding:44px 56px 120px; }
+  .sb-index { display:block; background:var(--accent); color:#fff; text-decoration:none;
+    font-weight:600; font-size:0.9rem; text-align:center; padding:10px 14px; border-radius:8px;
+    margin-bottom:18px; }
+  .sb-index:hover { opacity:0.9; }
+  .sidebar .toc { position:static; margin:0 0 18px; padding:0; background:none;
+    border:none; border-radius:0; }
+  .sidebar .toc h2 { font-size:0.9rem; margin:0 0 8px; border:none; padding:0; }
+  .sidebar .toc ol { columns:1; font-size:0.8rem; padding-left:1.3em; line-height:1.5; }
+  .sidebar .toc a { color:var(--fg); }
+  .sidebar .toc a:hover { color:var(--accent); }
+  .sb-nav { display:flex; flex-direction:column; gap:10px; border-top:1px solid var(--border);
+    padding-top:16px; margin-top:4px; }
+  .sb-nav a { font-size:0.82rem; text-decoration:none; color:var(--accent); font-weight:600; }
+  .sb-nav .lbl { display:block; font-size:0.68rem; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted); font-weight:400; }
+  @media (max-width: 820px) {
+    .wrap { flex-direction:column; }
+    .sidebar { position:static; width:auto; min-width:0; height:auto; overflow:visible;
+      border-right:none; border-bottom:1px solid var(--border); }
+    .sidebar .toc ol { columns:2; }
+    .content { padding:28px 20px 80px; }
+  }
+  header.title h1 { overflow-wrap:break-word; }
+  @media (max-width: 820px){ header.title h1 { font-size:1.7rem; } }
+  /* mobile-overflow fix */
+  mjx-container[display="true"] { min-width:0 !important; overflow-x:auto; overflow-y:hidden; max-width:100%; }
+  @media (max-width: 820px){
+    .wrap { align-items:stretch; }
+    .sidebar, .content { width:100%; max-width:100%; min-width:0; }
+    pre, table, figure, .box, blockquote { max-width:100%; }
+    /* long inline formulas: swipeable instead of widening the page; no scrollbar chrome */
+    mjx-container:not([display="true"]) { display:inline-block; max-width:100%; overflow-x:auto;
+      overflow-y:hidden; vertical-align:middle; scrollbar-width:none; }
+    mjx-container:not([display="true"])::-webkit-scrollbar { display:none; }
+  }
+
+  /* --- public site theme: always light, matching the landing page palette --- */
+  html:root { color-scheme: light;
+    --bg:#ffffff; --fg:#0d1b2a; --muted:#52606d; --accent:#0a5f9e; --accent-light:#0b8fd8;
+    --border:#d9e2ec; --code-bg:#f7fafc; --table-stripe:#f7fafc; --box-bg:#eef6fc; --box-border:#c6dcec; }
+  /* --- series branding (release build) --- */
+  .sb-series { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--fg);
+    font-weight:700; font-size:0.95rem; margin-bottom:14px; }
+  .sb-series img { width:44px; height:44px; border-radius:8px; }
+  .sb-soon { display:block; font-size:0.82rem; color:var(--muted); }
+  .sb-soon .lbl { display:block; font-size:0.68rem; text-transform:uppercase; letter-spacing:.06em; }
+  header.title .eyebrow { margin:0 0 8px; color:var(--accent-light); font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; font-size:0.8rem; font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; }
+  header.title .meta { margin-top:10px; font-size:0.9rem; color:var(--muted);
+    font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; }
+  .plain-ref { text-decoration:underline dotted; text-underline-offset:3px; }
+</style>
+<script data-goatcounter="https://whatsunderthehood.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<div class="wrap">
+<aside class="sidebar">
+<a class="sb-series" href="../"><img src="../assets/series-logo.svg" alt=""><span>What's Under the Hood?</span></a>
+<a class="sb-index" href="../">&larr; Series index</a>
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#s1">Motivation and Problem Setting</a></li>
+    <li><a href="#s2">Core Intuition</a></li>
+    <li><a href="#s3">Mathematical Formulation</a></li>
+    <li><a href="#s4">Derivation</a></li>
+    <li><a href="#s5">Algorithm</a></li>
+    <li><a href="#s6">Worked Numerical Example</a></li>
+    <li><a href="#s7">Geometry and Visual Interpretation</a></li>
+    <li><a href="#s8">Statistical Interpretation</a></li>
+    <li><a href="#s9">Training and Optimisation</a></li>
+    <li><a href="#s10">Hyperparameters</a></li>
+    <li><a href="#s11">Bias–Variance Behaviour</a></li>
+    <li><a href="#s12">Computational Complexity</a></li>
+    <li><a href="#s13">Data Preparation</a></li>
+    <li><a href="#s14">Evaluation</a></li>
+    <li><a href="#s15">Validation Strategy</a></li>
+    <li><a href="#s16">Diagnostics</a></li>
+    <li><a href="#s17">Strengths</a></li>
+    <li><a href="#s18">Weaknesses and Failure Modes</a></li>
+    <li><a href="#s19">Comparison With Related Algorithms</a></li>
+    <li><a href="#s20">When I Should Use It</a></li>
+    <li><a href="#s21">Python Implementation From Scratch</a></li>
+    <li><a href="#s22">Production Python Implementation</a></li>
+    <li><a href="#s23">Library Parameters Mapped to Mathematics</a></li>
+    <li><a href="#s24">Common Interview Questions</a></li>
+    <li><a href="#s25">Common Misconceptions</a></li>
+    <li><a href="#s26">Exercises</a></li>
+    <li style="list-style:none"><a href="#s26s">Solutions</a></li>
+    <li value="27"><a href="#s27">Summary Cheat Sheet</a></li>
+  </ol>
+</nav>
+<div class="sb-nav"><a href="../03-k-nearest-neighbours/"><span class="lbl">&larr; Previous</span>k-Nearest Neighbours</a><span class="sb-soon"><span class="lbl">Next &rarr;</span>Support Vector Machines &middot; coming next week</span></div>
+</aside>
+<main class="content">
+<header class="title">
+  <p class="eyebrow">What's Under the Hood? &middot; #04 &middot; Week 4</p>
+  <h1>Lecture 4: Naive Bayes</h1>
+  <div class="subtitle">Part I: Mathematical Foundations and Classical Supervised Learning</div>
+  <div class="meta">Dr. Muhammad Shoaib &middot; Applied Mathematics &amp; Data Science &middot; <a href="https://www.linkedin.com/newsletters/7510688077275648000/">LinkedIn newsletter</a> &middot; every lecture follows the same 27 sections &mdash; use the sidebar to navigate.</div>
+</header>
+
+<p>The first three lectures were <em>discriminative</em>: linear and logistic regression model $P(y\mid x)$ or the boundary directly, and KNN reads the answer off nearby examples. Naive Bayes takes the opposite, <em>generative</em> route. It builds a probabilistic model of how each class produces a feature vector, then uses Bayes' theorem to turn that model into a class prediction. The word "naive" refers to a single simplifying assumption, that the features are conditionally independent given the class. The assumption is almost never literally true, yet the classifier works well in practice, especially for text. Understanding why a wrong assumption still gives good classifications is the main point of this lecture, and the lesson applies widely in machine learning: a model can be a poor description of reality and still be an effective decision rule.</p>
+
+<hr>
+
+<h2 id="s1">1. Motivation and Problem Setting</h2>
+
+<p><strong>The problem.</strong> Given a feature vector $x=(x_1,\dots,x_p)$, assign it to one of $M$ classes. We want $P(y=c\mid x)$ for each class $c$ and predict the most probable one. Naive Bayes attacks this by modelling how features arise <em>within</em> each class.</p>
+
+<p><strong>Discriminative versus generative.</strong> A <em>discriminative</em> model (logistic regression, KNN, SVM) learns $P(y\mid x)$ or the boundary directly. A <em>generative</em> model learns the joint $P(x,y)=P(x\mid y)P(y)$, a full account of how the data are produced, and derives $P(y\mid x)$ from it via Bayes' theorem. Generative models can generate synthetic data, marginalise over missing features, and often need less training data; discriminative models usually achieve lower error given enough data because they optimise exactly the quantity they are judged on. Naive Bayes is the simplest generative classifier in common use.</p>
+
+<p><strong>Why it was developed.</strong> The full generative approach requires modelling the joint distribution of all features within a class, $P(x_1,\dots,x_p\mid y)$. In $p$ dimensions this is infeasible: for binary features it needs $2^p-1$ parameters per class, far more than any dataset can estimate. Naive Bayes makes the problem tractable with the conditional-independence assumption, collapsing $2^p$ parameters to just $p$ per class. It became the default text classifier (spam filtering, document categorisation) because it is fast, needs little data, and copes with the large sparse feature spaces of language.</p>
+
+<p><strong>Where it sits.</strong> Naive Bayes is supervised, parametric, probabilistic and generative. It is the generative sibling of logistic regression (with shared class variances they have the same log-linear posterior form; §19) and a distant relative of the Gaussian mixture models and Gaussian processes to come (<span class="plain-ref" title="Lecture 15 is released in Week 15">coming in Week 15</span> and <span class="plain-ref" title="Lecture 17 is released in Week 17">coming in Week 17</span>), all of which build on the same Bayesian machinery: priors, likelihoods, and posteriors.</p>
+
+<p><strong>Assumptions.</strong></p>
+<ol>
+  <li><strong>Conditional independence:</strong> given the class, the features are independent: $P(x\mid y)=\prod_j P(x_j\mid y)$. This is "naive."</li>
+  <li><strong>A correct per-feature likelihood family:</strong> Gaussian for continuous features, multinomial for counts, Bernoulli for binary; the family must match the data (§3).</li>
+  <li><strong>Representative priors:</strong> the training class frequencies reflect the deployment class frequencies (or you set priors deliberately).</li>
+  <li><strong>Independent observations.</strong></li>
+</ol>
+
+<p><strong>When reasonable / unreasonable.</strong> The independence assumption is reasonable when features carry largely non-redundant information (e.g. many weakly-correlated word indicators). It is unreasonable when features are strongly correlated or one feature is a near-duplicate of another. Naive Bayes then counts the shared evidence twice, which produces miscalibrated probabilities, though often still the correct ranking and hence correct classifications (§4.4). The chosen likelihood family must also match the data type.</p>
+
+<h2 id="s2">2. Core Intuition</h2>
+
+<p>Bayes' theorem says: to find how probable a class is <em>given</em> the evidence, combine how probable that class is <em>a priori</em> with how well that class <em>explains</em> the evidence. Formally, posterior $\propto$ prior $\times$ likelihood.</p>
+
+<p>Think of a spam filter. Before reading an email, you have a prior belief, say that 30% of mail is spam. Then you read the words. The word "viagra" is far more likely to appear in spam than in ham, so seeing it multiplies your belief towards spam; the word "meeting" pulls the other way. Naive Bayes multiplies together the evidence from every word (treating each word's contribution as independent, given the class) and combines it with the prior. Whichever class ends up with the higher product wins.</p>
+
+<p><strong>Why the "naive" multiplication works.</strong> In reality "free" and "money" co-occur in spam; they are not independent. Naive Bayes ignores this and multiplies their individual likelihoods anyway. This over-counts correlated evidence, so the resulting probability estimate is too extreme (over-confident). For the argmax decision, however, we need only that the correct class has the largest product; its magnitude is irrelevant. Over-confidence usually pushes the already-winning class further ahead without changing which class wins. So the classifier is right even though its probabilities are wrong.</p>
+
+<p><strong>Probabilistic intuition.</strong> Each class is a "generator" with its own recipe for producing features. Gaussian NB imagines each class draws each continuous feature from a bell curve with a class-specific mean and variance. Multinomial NB imagines each class is a weighted die rolled repeatedly to produce word counts. Classification picks the generator that most plausibly produced the observation.</p>
+
+<p><em>Tiny numerical seed.</em> Two classes equally likely a priori. Class A generates feature "1" 90% of the time; class B generates "1" 20% of the time. We observe "1". Posterior odds A:B $= (0.5\cdot0.9):(0.5\cdot0.2)=0.45:0.10$, so $P(A\mid1)=0.45/0.55\approx0.82$. We build a full multi-feature example in §6.</p>
+
+<figure>
+<div class="fig-wrap">
+<svg viewBox="0 0 720 220" role="img" aria-label="Naive Bayes pipeline: prior times product of per-feature likelihoods gives the posterior score per class">
+  <!-- Prior box -->
+  <rect x="20" y="80" width="120" height="60" rx="8" fill="var(--box-bg)" stroke="var(--box-border)" stroke-width="1.5"/>
+  <text x="80" y="105" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="bold" fill="var(--fg)">Prior</text>
+  <text x="80" y="126" text-anchor="middle" font-family="sans-serif" font-size="15" fill="var(--accent)">&#960;<tspan dy="4" font-size="11">c</tspan></text>
+  <!-- times -->
+  <text x="162" y="116" text-anchor="middle" font-family="sans-serif" font-size="22" fill="var(--muted)">&#215;</text>
+  <!-- Likelihood product box -->
+  <rect x="185" y="55" width="200" height="110" rx="8" fill="var(--box-bg)" stroke="var(--box-border)" stroke-width="1.5"/>
+  <text x="285" y="80" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="bold" fill="var(--fg)">Likelihood (naive product)</text>
+  <text x="285" y="112" text-anchor="middle" font-family="serif" font-size="20" fill="var(--accent)">&#8719;<tspan dy="5" font-size="13">j</tspan><tspan dy="-5"> P(x</tspan><tspan dy="5" font-size="13">j</tspan><tspan dy="-5"> | c)</tspan></text>
+  <text x="285" y="140" text-anchor="middle" font-family="sans-serif" font-size="11" fill="var(--muted)">features assumed independent | class</text>
+  <!-- equals -->
+  <text x="408" y="116" text-anchor="middle" font-family="sans-serif" font-size="22" fill="var(--muted)">=</text>
+  <!-- Posterior box -->
+  <rect x="430" y="80" width="140" height="60" rx="8" fill="var(--accent)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="500" y="105" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="bold" fill="#fff">Posterior score</text>
+  <text x="500" y="126" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#fff">P(c | x)</text>
+  <!-- arrow to argmax -->
+  <line x1="570" y1="110" x2="612" y2="110" stroke="var(--muted)" stroke-width="2" marker-end="url(#arrH4)"/>
+  <rect x="616" y="82" width="86" height="56" rx="8" fill="none" stroke="var(--accent-light)" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="659" y="106" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="var(--fg)">arg max</text>
+  <text x="659" y="125" text-anchor="middle" font-family="sans-serif" font-size="12" fill="var(--muted)">predict &#375;</text>
+  <defs>
+    <marker id="arrH4" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+<figcaption>The Naive Bayes computation: combine the class prior with the product of per-feature likelihoods (the "naive" step) to score each class, then take the arg max. Done in log-space in practice, turning the product into a sum.</figcaption>
+</figure>
+
+<h2 id="s3">3. Mathematical Formulation</h2>
+
+<p><strong>Notation.</strong> Feature vector $x=(x_1,\dots,x_p)$, class label $y\in\{1,\dots,M\}$. Let $\pi_c=P(y=c)$ be the class prior, and $P(x_j\mid y=c)$ the per-feature class-conditional likelihood.</p>
+
+<p><strong>Bayes' theorem.</strong></p>
+$$ P(y=c\mid x)=\frac{P(x\mid y=c)\,P(y=c)}{P(x)}=\frac{P(x\mid y=c)\,\pi_c}{\sum_{c'}P(x\mid y=c')\,\pi_{c'}}. $$
+<p>The denominator $P(x)$ is the same for all classes, so for the decision it can be ignored; it is only a normaliser.</p>
+
+<p><strong>The naive conditional-independence assumption.</strong></p>
+<div class="box">
+$$ P(x\mid y=c)=\prod_{j=1}^p P(x_j\mid y=c). $$
+</div>
+
+<p><strong>The classifier (MAP rule).</strong> Predict the class maximising the posterior, equivalently the (unnormalised) prior × likelihood product:</p>
+<div class="box">
+$$ \hat y = \arg\max_{c}\ \pi_c\prod_{j=1}^p P(x_j\mid y=c). $$
+</div>
+
+<p><strong>The log-space form (used in practice).</strong> Multiplying many small probabilities underflows to zero; work in logs, turning products into sums:</p>
+$$ \hat y=\arg\max_c\ \Big[\log\pi_c+\sum_{j=1}^p\log P(x_j\mid y=c)\Big]. $$
+<p>This is a linear function of the log-likelihood terms, which §7 and §19 use.</p>
+
+<h4>The three standard likelihood families</h4>
+
+<p><strong>Gaussian NB (continuous features).</strong> Each feature is normally distributed within each class:</p>
+$$ P(x_j\mid y=c)=\frac{1}{\sqrt{2\pi\sigma_{cj}^2}}\exp\!\left(-\frac{(x_j-\mu_{cj})^2}{2\sigma_{cj}^2}\right), $$
+<p>with class-and-feature-specific mean $\mu_{cj}$ and variance $\sigma_{cj}^2$.</p>
+
+<p><strong>Multinomial NB (count features, e.g. word counts).</strong> Each class $c$ has a categorical distribution over the vocabulary with probabilities $\theta_{cj}$ ($\sum_j\theta_{cj}=1$). For a document with counts $x_j$:</p>
+$$ P(x\mid y=c)\propto\prod_{j=1}^p \theta_{cj}^{\,x_j},\qquad \theta_{cj}=\frac{\text{count of feature }j\text{ in class }c}{\text{total count in class }c}. $$
+
+<p><strong>Bernoulli NB (binary features, e.g. word present/absent).</strong> Each feature is a coin flip with class-specific success probability $\theta_{cj}=P(x_j=1\mid y=c)$:</p>
+$$ P(x\mid y=c)=\prod_{j=1}^p \theta_{cj}^{\,x_j}(1-\theta_{cj})^{1-x_j}. $$
+<p>Note Bernoulli NB explicitly models feature <em>absence</em> (the $(1-\theta_{cj})$ term), unlike Multinomial NB.</p>
+
+<p><strong>Laplace (additive) smoothing.</strong> To avoid zero probabilities (a single unseen feature-value zeroes the whole product), add a pseudocount $\alpha$:</p>
+$$ \theta_{cj}=\frac{N_{cj}+\alpha}{N_c+\alpha\,K}, $$
+<p>where $N_{cj}$ is the count of feature $j$ in class $c$, $N_c$ the total in class $c$, and $K$ the number of possible values (vocabulary size for text). $\alpha=1$ is "Laplace smoothing"; $\alpha<1$ is "Lidstone."</p>
+
+<h2 id="s4">4. Derivation</h2>
+
+<h3>4.1 From the joint to the posterior</h3>
+<p>The joint distribution factors as $P(x,y)=P(y)P(x\mid y)$. The quantity we want, the posterior, follows from the definition of conditional probability:</p>
+$$ P(y\mid x)=\frac{P(x,y)}{P(x)}=\frac{P(y)P(x\mid y)}{P(x)}. $$
+<p>This is exact; it is Bayes' theorem. Everything "naive" enters only in how we model $P(x\mid y)$.</p>
+
+<h3>4.2 Why the independence assumption is necessary</h3>
+<p>Modelling $P(x\mid y=c)$ jointly is infeasible. Suppose all $p$ features are binary. The joint distribution over $p$ binary variables has $2^p$ possible outcomes, hence $2^p-1$ free parameters <em>per class</em>. With $p=1000$ (a small vocabulary) that is $2^{1000}\approx10^{301}$ parameters, unestimable from any dataset. The independence factorisation $P(x\mid y)=\prod_j P(x_j\mid y)$ replaces this with $p$ parameters per class (one per feature). This exponential-to-linear collapse is the entire reason Naive Bayes exists; the price is the (usually false) independence assumption.</p>
+
+<h3>4.3 Maximum-likelihood parameter estimates</h3>
+<p>The parameters are fitted by maximum likelihood, and the estimates are counting and averaging, with closed forms and no iteration.</p>
+
+<p><strong>Priors.</strong> Maximising the likelihood of the class labels gives the empirical frequencies:</p>
+$$ \hat\pi_c=\frac{N_c}{N},\qquad N_c=\#\{i:y_i=c\}. $$
+
+<p><strong>Gaussian NB.</strong> Maximising the Gaussian likelihood for the points in class $c$ gives the sample mean and variance per feature (exactly as in fitting a normal distribution):</p>
+$$ \hat\mu_{cj}=\frac{1}{N_c}\sum_{i:y_i=c}x_{ij},\qquad \hat\sigma_{cj}^2=\frac{1}{N_c}\sum_{i:y_i=c}(x_{ij}-\hat\mu_{cj})^2. $$
+
+<p><strong>Multinomial / Bernoulli NB.</strong> Maximising the multinomial/Bernoulli likelihood gives the smoothed relative frequencies $\hat\theta_{cj}=(N_{cj}+\alpha)/(N_c+\alpha K)$ of §3. The pseudocount $\alpha$ is equivalent to placing a Dirichlet/Beta <em>prior</em> on the parameters and taking the posterior mean, so smoothing is a Bayesian regularisation (§8).</p>
+
+<h3>4.4 Why a wrong assumption still classifies well (Domingos–Pazzani)</h3>
+<p>Consider two classes and write the log-posterior-odds:</p>
+$$ \log\frac{P(y{=}1\mid x)}{P(y{=}0\mid x)}=\log\frac{\pi_1}{\pi_0}+\sum_{j=1}^p\log\frac{P(x_j\mid y{=}1)}{P(x_j\mid y{=}0)}. $$
+<p>We classify as class 1 when this sum is positive. Now suppose the true features are correlated, so the independence assumption is false. The magnitude of the sum will be wrong: correlated features contribute their evidence more than once, inflating the sum and making the probability estimate over-confident (pushed towards 0 or 1). The sign of the sum, which determines the classification, is often still correct, because the direction in which each feature pushes is usually right even when the amount is exaggerated.</p>
+<p><a href="https://doi.org/10.1023/A:1007413511361">Domingos and Pazzani (1997)</a> made this precise: under zero-one loss, Naive Bayes is optimal in a much wider region than the independent case, namely whenever the dependencies between features cancel or leave the sign of the decision unchanged. Good probability estimation and good classification are different goals, and a model can fail the first and pass the second.</p>
+
+<h2 id="s5">5. Algorithm</h2>
+
+<pre><code>TRAINING (closed-form counting and averaging; no iteration):
+  Input: {(x_i, y_i)}, smoothing α, likelihood family
+  1. For each class c:
+       π̂_c = N_c / N                             # class prior
+  2. For each class c and feature j, estimate the likelihood parameters:
+       Gaussian:    μ̂_cj = mean, σ̂²_cj = variance of feature j over class-c points
+       Multinomial: θ̂_cj = (N_cj + α) / (N_c + αK)     # smoothed word frequencies
+       Bernoulli:   θ̂_cj = (N_cj + α) / (N_c + 2α)     # smoothed presence probability
+  Output: priors and per-class-per-feature likelihood parameters
+
+PREDICTION (work in log space to avoid underflow):
+  Input: query x
+  1. For each class c compute the log-score:
+       score_c = log π̂_c + Σ_j log P(x_j | y=c)   # linear in log-likelihoods
+  2. ŷ = argmax_c score_c
+  3. Probabilities (optional): softmax of the scores,
+       P(y=c | x) = exp(score_c) / Σ_c' exp(score_c')</code></pre>
+
+<p><strong>Inputs:</strong> labelled data, likelihood family, smoothing $\alpha$, optional class priors. <strong>Initialisation / stopping:</strong> none; training is a single counting pass. <strong>Outputs:</strong> the predicted class and posterior probabilities (typically over-confident, §8).</p>
+
+<h2 id="s6">6. Worked Numerical Example</h2>
+
+<p>A tiny spam filter with two binary word features. Training data (14 emails):</p>
+
+<table>
+<thead><tr><th>Class</th><th># emails</th><th># with "free"</th><th># with "meeting"</th></tr></thead>
+<tbody>
+<tr><td>Spam</td><td>6</td><td>5</td><td>1</td></tr>
+<tr><td>Ham</td><td>8</td><td>1</td><td>6</td></tr>
+</tbody>
+</table>
+
+<p>Use <strong>Bernoulli NB</strong> with Laplace smoothing $\alpha=1$ ($K=2$ values per feature: present/absent). Classify a new email containing <em>"free" (=1)</em> but not <em>"meeting" (=0)</em>.</p>
+
+<p><strong>Step 1: priors.</strong></p>
+$$ \hat\pi_{\text{spam}}=\tfrac{6}{14}=0.4286,\qquad \hat\pi_{\text{ham}}=\tfrac{8}{14}=0.5714. $$
+
+<p><strong>Step 2: smoothed likelihoods</strong> $\hat\theta_{cj}=\dfrac{N_{cj}+1}{N_c+2}$ (probability the word is <em>present</em>):</p>
+$$ \theta_{\text{spam,free}}=\tfrac{5+1}{6+2}=\tfrac{6}{8}=0.75,\qquad \theta_{\text{spam,meet}}=\tfrac{1+1}{6+2}=\tfrac{2}{8}=0.25, $$
+$$ \theta_{\text{ham,free}}=\tfrac{1+1}{8+2}=\tfrac{2}{10}=0.20,\qquad \theta_{\text{ham,meet}}=\tfrac{6+1}{8+2}=\tfrac{7}{10}=0.70. $$
+
+<p><strong>Step 3: likelihood of the observation</strong> (free=1, meeting=0). Bernoulli uses $\theta$ for present features and $(1-\theta)$ for absent:</p>
+$$ P(x\mid\text{spam})=\theta_{\text{spam,free}}\cdot(1-\theta_{\text{spam,meet}})=0.75\times0.75=0.5625, $$
+$$ P(x\mid\text{ham})=\theta_{\text{ham,free}}\cdot(1-\theta_{\text{ham,meet}})=0.20\times0.30=0.0600. $$
+
+<p><strong>Step 4: unnormalised posteriors (prior × likelihood).</strong></p>
+$$ \text{spam}:\ 0.4286\times0.5625=0.2411,\qquad \text{ham}:\ 0.5714\times0.0600=0.0343. $$
+
+<p><strong>Step 5: normalise.</strong></p>
+$$ P(\text{spam}\mid x)=\frac{0.2411}{0.2411+0.0343}=\frac{0.2411}{0.2754}=0.875,\qquad P(\text{ham}\mid x)=0.125. $$
+
+<p><strong>Decision:</strong> classify as <strong>spam</strong> with posterior $\approx0.88$. The single word "free" (present in 5/6 spam but only 1/8 ham) combined with the <em>absence</em> of "meeting" strongly favours spam. The Bernoulli model used both the presence of "free" and the absence of "meeting" as evidence; Multinomial NB would ignore the absence.</p>
+
+<p><strong>Log-space check (Step 5 alternative).</strong> $\log(0.2411)=-1.423$, $\log(0.0343)=-3.373$; the spam score exceeds the ham score by $1.95$ nats, and $\text{softmax}=(e^{-1.423},e^{-3.373})/\text{sum}=(0.875,0.125)$, the same result computed without underflow.</p>
+
+<figure>
+<div class="fig-wrap">
+<svg viewBox="0 0 560 250" role="img" aria-label="Bar chart showing how the prior is updated by the likelihood into the posterior for spam versus ham">
+  <!-- axis -->
+  <line x1="60" y1="20" x2="60" y2="200" stroke="var(--border)" stroke-width="1.5"/>
+  <line x1="60" y1="200" x2="540" y2="200" stroke="var(--border)" stroke-width="1.5"/>
+  <text x="20" y="14" font-family="sans-serif" font-size="11" fill="var(--muted)">prob</text>
+  <text x="55" y="215" text-anchor="end" font-family="sans-serif" font-size="10" fill="var(--muted)">0</text>
+  <text x="55" y="115" text-anchor="end" font-family="sans-serif" font-size="10" fill="var(--muted)">0.5</text>
+  <text x="55" y="25" text-anchor="end" font-family="sans-serif" font-size="10" fill="var(--muted)">1.0</text>
+  <line x1="57" y1="110" x2="60" y2="110" stroke="var(--muted)"/>
+  <!-- Group 1: Prior -->
+  <rect x="95"  y="123" width="34" height="77" fill="var(--accent)"/>       <!-- spam 0.429 -->
+  <rect x="133" y="97"  width="34" height="103" fill="var(--accent-light)"/> <!-- ham 0.571 -->
+  <text x="131" y="235" text-anchor="middle" font-family="sans-serif" font-size="12" fill="var(--fg)">Prior</text>
+  <text x="112" y="118" text-anchor="middle" font-family="sans-serif" font-size="9" fill="var(--muted)">.43</text>
+  <text x="150" y="92"  text-anchor="middle" font-family="sans-serif" font-size="9" fill="var(--muted)">.57</text>
+  <!-- Group 2: prior × likelihood, unnormalised: spam 0.241, ham 0.034 on the same 0–1 axis (180 px per unit) -->
+  <rect x="245" y="157" width="34" height="43" fill="var(--accent)"/>        <!-- 0.241 -->
+  <rect x="283" y="194" width="34" height="6"  fill="var(--accent-light)"/>   <!-- 0.034 -->
+  <text x="281" y="235" text-anchor="middle" font-family="sans-serif" font-size="12" fill="var(--fg)">Prior &#215; Lik.</text>
+  <text x="262" y="152" text-anchor="middle" font-family="sans-serif" font-size="9" fill="var(--muted)">.241</text>
+  <text x="300" y="189" text-anchor="middle" font-family="sans-serif" font-size="9" fill="var(--muted)">.034</text>
+  <!-- Group 3: Posterior normalised -->
+  <rect x="395" y="42.5" width="34" height="157.5" fill="var(--accent)"/>    <!-- 0.875 × 180 -->
+  <rect x="433" y="177.5" width="34" height="22.5" fill="var(--accent-light)"/> <!-- 0.125 × 180 -->
+  <text x="431" y="235" text-anchor="middle" font-family="sans-serif" font-size="12" fill="var(--fg)">Posterior</text>
+  <text x="412" y="37" text-anchor="middle" font-family="sans-serif" font-size="9" fill="var(--muted)">.875</text>
+  <text x="450" y="172" text-anchor="middle" font-family="sans-serif" font-size="9" fill="var(--muted)">.125</text>
+  <!-- legend -->
+  <rect x="480" y="30" width="12" height="12" fill="var(--accent)"/>
+  <text x="497" y="40" font-family="sans-serif" font-size="11" fill="var(--fg)">spam</text>
+  <rect x="480" y="50" width="12" height="12" fill="var(--accent-light)"/>
+  <text x="497" y="60" font-family="sans-serif" font-size="11" fill="var(--fg)">ham</text>
+</svg>
+</div>
+<figcaption>The worked spam example (email with "free", no "meeting"). Ham starts ahead on the prior, but the likelihood of the evidence is far higher under spam, so multiplying and re-normalising flips the decision to spam at posterior 0.88.</figcaption>
+</figure>
+
+<h2 id="s7">7. Geometry and Visual Interpretation</h2>
+
+<p><strong>Gaussian NB carves space with quadratic (or linear) boundaries.</strong> Each class is a probability "hill", a product of per-feature Gaussians whose contours in 2D are axis-aligned ellipses (independence forces a diagonal covariance, so there is no tilt). Classification assigns each point to the class whose hill is highest there. Where two Gaussian hills of <em>different variances</em> meet, the boundary is a quadratic curve (a conic); where the variances are equal across classes, the quadratic terms cancel and the boundary is a straight line or hyperplane. In that special case Gaussian NB coincides with Linear Discriminant Analysis (LDA) restricted to a diagonal shared covariance. A good visualisation: two sets of concentric axis-aligned ellipses (one per class), with the decision boundary running through the points of equal height.</p>
+
+<p><strong>The log-linear view.</strong> Writing the log-posterior-odds (§4.4) shows the decision function is <em>linear in the log-likelihood terms</em>. For Multinomial/Bernoulli NB this makes the decision boundary linear in the feature space, so Naive Bayes is a linear classifier, closely paralleling logistic regression (§19). The difference is <em>how</em> the linear weights are chosen: NB sets them by generative counting; logistic regression sets them by discriminative optimisation.</p>
+
+<p><strong>Independence = axis-aligned.</strong> The geometric signature of the naive assumption is the <em>absence of tilt</em>: the class densities cannot capture diagonal correlation structure, so their contours are always aligned to the feature axes. When the true class clouds are tilted (correlated features), NB's axis-aligned ellipses misfit, which is the visual explanation of its miscalibration.</p>
+
+<figure>
+<div class="fig-wrap">
+<svg viewBox="0 0 640 260" role="img" aria-label="Gaussian Naive Bayes fits axis-aligned ellipses; when the true data is tilted the model misfits">
+  <!-- LEFT: NB fits well (axis-aligned true clouds) -->
+  <text x="150" y="20" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="bold" fill="var(--fg)">Independent features: NB fits</text>
+  <line x1="30" y1="230" x2="290" y2="230" stroke="var(--border)"/>
+  <line x1="30" y1="40" x2="30" y2="230" stroke="var(--border)"/>
+  <!-- class A ellipses (axis-aligned) -->
+  <ellipse cx="105" cy="160" rx="48" ry="30" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+  <ellipse cx="105" cy="160" rx="30" ry="18" fill="none" stroke="var(--accent)" stroke-width="1.2" opacity="0.6"/>
+  <!-- class B ellipses (axis-aligned) -->
+  <ellipse cx="210" cy="110" rx="46" ry="28" fill="none" stroke="var(--accent-light)" stroke-width="1.6"/>
+  <ellipse cx="210" cy="110" rx="28" ry="16" fill="none" stroke="var(--accent-light)" stroke-width="1.2" opacity="0.6"/>
+  <!-- boundary (roughly perpendicular bisector region) -->
+  <path d="M120,235 Q165,150 250,55" fill="none" stroke="var(--fg)" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="105" y="165" text-anchor="middle" font-family="sans-serif" font-size="13" fill="var(--accent)">A</text>
+  <text x="210" y="115" text-anchor="middle" font-family="sans-serif" font-size="13" fill="var(--accent-light)">B</text>
+
+  <!-- RIGHT: NB misfits (tilted/correlated true clouds) -->
+  <text x="490" y="20" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="bold" fill="var(--fg)">Correlated features: NB misfits</text>
+  <line x1="370" y1="230" x2="630" y2="230" stroke="var(--border)"/>
+  <line x1="370" y1="40" x2="370" y2="230" stroke="var(--border)"/>
+  <!-- true tilted cloud A (grey dashed) -->
+  <g transform="rotate(-35 450 160)">
+    <ellipse cx="450" cy="160" rx="60" ry="20" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="3 3"/>
+  </g>
+  <!-- NB's axis-aligned fit (solid): marginal sds of the tilted ellipse, sqrt(60²cos²35°+20²sin²35°)=50, sqrt(60²sin²35°+20²cos²35°)=38 -->
+  <ellipse cx="450" cy="160" rx="50" ry="38" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+  <!-- true tilted cloud B -->
+  <g transform="rotate(-35 545 105)">
+    <ellipse cx="545" cy="105" rx="58" ry="19" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="3 3"/>
+  </g>
+  <ellipse cx="545" cy="105" rx="49" ry="37" fill="none" stroke="var(--accent-light)" stroke-width="1.6"/>
+  <text x="450" y="165" text-anchor="middle" font-family="sans-serif" font-size="13" fill="var(--accent)">A</text>
+  <text x="545" y="110" text-anchor="middle" font-family="sans-serif" font-size="13" fill="var(--accent-light)">B</text>
+  <!-- legend -->
+  <line x1="380" y1="248" x2="405" y2="248" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="3 3"/>
+  <text x="410" y="252" font-family="sans-serif" font-size="10" fill="var(--muted)">true cloud</text>
+  <line x1="500" y1="248" x2="525" y2="248" stroke="var(--accent)" stroke-width="1.6"/>
+  <text x="530" y="252" font-family="sans-serif" font-size="10" fill="var(--muted)">NB fit (axis-aligned)</text>
+</svg>
+</div>
+<figcaption>Gaussian NB's diagonal-covariance assumption forces <em>axis-aligned</em> density contours. Left: when features are truly independent the ellipses match and the boundary is sensible. Right: when features are correlated (tilted true clouds, dashed), NB's axis-aligned ellipses cannot capture the tilt, the source of its miscalibration.</figcaption>
+</figure>
+
+<h2 id="s8">8. Statistical Interpretation</h2>
+
+<p><strong>A generative model with MLE parameters.</strong> Naive Bayes posits a full generative story $P(x,y)$ and estimates its parameters by maximum likelihood, with closed-form counts and moments (§4.3). Because each parameter is estimated from only the data in its class using a simple sufficient statistic (counts, means, variances), the estimates are <em>low-variance</em> and <em>consistent</em> for the assumed model, and stable even with little data. This data-efficiency is the statistical upside of the strong assumption.</p>
+
+<p><strong>Bias from the assumption.</strong> The independence assumption introduces <em>model bias</em>: the fitted joint $P(x\mid y)$ is systematically wrong whenever features are correlated. This bias shows most clearly in calibration: the posterior probabilities are typically pushed towards 0 or 1 (over-confident), because correlated evidence is counted repeatedly. So NB is a good <em>classifier</em> but an unreliable <em>probability estimator</em> (§14, §16).</p>
+
+<p><strong>Smoothing as Bayesian inference.</strong> Adding pseudocount $\alpha$ is the posterior mean under a Dirichlet($\alpha$) prior on the categorical parameters (Beta for Bernoulli). It regularises the estimates away from the extreme 0/1 values that unseen events would otherwise force, a small dose of prior belief that prevents a single unseen feature from vetoing a class.</p>
+
+<p><strong>Priors and decision theory.</strong> The class priors $\pi_c$ let you inject known base rates and, combined with a loss matrix, produce Bayes-optimal decisions under asymmetric costs (e.g. missing spam vs blocking real mail). This decision-theoretic footing is a strength of the generative framing.</p>
+
+<h2 id="s9">9. Training and Optimisation</h2>
+
+<p><strong>No iterative optimisation: training is closed-form counting.</strong> Unlike logistic regression (iterative), SVM (quadratic program), or neural nets (gradient descent), Naive Bayes has an <em>analytic</em> maximum-likelihood solution: count class frequencies, count/average feature statistics per class, apply smoothing. A single pass over the data suffices. There is no loss surface to descend, no convergence to worry about, no initialisation, no learning rate.</p>
+
+<p><strong>Consequences.</strong></p>
+<ul>
+  <li><strong>Fast training:</strong> $O(np)$, one sweep to accumulate counts (§12).</li>
+  <li><strong>Trivial online updates:</strong> counts are additive, so streaming data increments the sufficient statistics; Naive Bayes is naturally incremental (scikit-learn exposes <code>partial_fit</code>).</li>
+  <li><strong>No local minima, fully deterministic:</strong> the same data always yields the same model.</li>
+</ul>
+
+<p>The only "tuning" is the smoothing parameter $\alpha$ (and the choice of likelihood family), selected by cross-validation. In that sense Naive Bayes has almost no optimisation to speak of, which is why it is such a fast baseline.</p>
+
+<h2 id="s10">10. Hyperparameters</h2>
+
+<p><strong>$\alpha$, the additive (Laplace/Lidstone) smoothing strength.</strong></p>
+<ul>
+  <li><em>Mathematically:</em> the pseudocount added to every feature-value count; equivalently the Dirichlet/Beta prior strength (§8).</li>
+  <li><em>Increasing $\alpha$:</em> pulls all likelihood estimates towards the uniform distribution → more bias, less variance; smooths over rare features, but too large a value washes out real signal and weakens the classifier towards the prior.</li>
+  <li><em>Decreasing $\alpha$ (towards 0):</em> trusts the raw counts → less bias, more variance; risks zero/near-zero probabilities from unseen feature-values that can veto a class or make probabilities unstable.</li>
+  <li><em>Guidance:</em> $\alpha=1$ is a safe default; tune on a log grid (e.g. $10^{-3}$ to $10$) by CV, especially for large sparse vocabularies where the right $\alpha$ matters.</li>
+</ul>
+
+<p><strong>Likelihood family (the biggest "hyperparameter").</strong> Gaussian (continuous), Multinomial (counts/TF or TF-IDF), Bernoulli (binary presence). Choosing wrongly (e.g. Gaussian on word counts) hurts performance badly. This is a modelling decision made from the data type; grid search is for $\alpha$.</p>
+
+<p><strong>Class priors (<code>class_prior</code> / <code>fit_prior</code>).</strong> Use empirical frequencies, a uniform prior, or hand-set priors to reflect deployment base rates or cost asymmetries (§8). Setting a uniform prior can help under training-set imbalance that won't hold at deployment.</p>
+
+<p><strong>Binarisation threshold (Bernoulli NB, <code>binarize</code>).</strong> The cutoff that maps continuous/count features to 0/1 before applying the Bernoulli model; it defines what "present" means.</p>
+
+<h2 id="s11">11. Bias–Variance Behaviour</h2>
+
+<ul>
+  <li><strong>High bias by design:</strong> the independence assumption and simple per-feature likelihoods make Naive Bayes a high-bias, low-variance model. It cannot represent feature interactions or correlation structure, so it underfits complex boundaries, but it is stable and rarely overfits.</li>
+  <li><strong>Low variance is its advantage with small $n$ or large $p$:</strong> because it estimates only $O(Mp)$ simple statistics, the estimates are stable even when $n$ is small or $p$ is very large (text). This is why NB often beats lower-bias models such as logistic regression when data are scarce: the variance saving outweighs the bias cost.</li>
+  <li><strong>Underfitting</strong> dominates its failure mode: it will plateau below the achievable accuracy when correlations carry real signal. Adding more data helps little once the bias floor set by the assumption is reached; the remedy is a richer model.</li>
+  <li><strong>Overfitting</strong> is rare but possible with $\alpha\to0$ on sparse data (unseen values create unstable extreme probabilities); smoothing regularises this away.</li>
+  <li><strong>Asymptotic comparison to logistic regression (Ng & Jordan, 2001):</strong> NB has higher asymptotic error (bias) but converges to its (worse) limit faster, with $O(\log p)$ samples against $O(p)$ for logistic regression. So NB wins in the small-$n$ regime, logistic regression overtakes it as $n$ grows.</li>
+</ul>
+
+<h2 id="s12">12. Computational Complexity</h2>
+
+<p>Let $n$ = samples, $p$ = features, $M$ = classes.</p>
+<ul>
+  <li><strong>Training:</strong> $O(np)$, a single pass accumulating counts and moments. Among the fastest classifiers to train; it scales to millions of documents.</li>
+  <li><strong>Prediction:</strong> $O(Mp)$ per example: evaluate $p$ log-likelihoods for each of $M$ classes and take the argmax. For Multinomial NB on sparse text only the nonzero features contribute, so the cost is $O(M\cdot\text{nnz})$; Bernoulli NB still needs every feature, since absence is evidence.</li>
+  <li><strong>Memory:</strong> $O(Mp)$: one parameter set (mean/variance or $\theta$) per class per feature. Tiny compared to KNN's $O(np)$; the training data is discarded after counting.</li>
+  <li><strong>Online updates:</strong> $O(p)$ per new sample (increment counts), so the model is naturally streaming.</li>
+</ul>
+<p><strong>Scalability consequences:</strong> Naive Bayes is among the cheapest supervised classifiers to train, serve and update, which matters for very large, high-dimensional or streaming text data and is the reason it remains a standard first baseline.</p>
+
+<h2 id="s13">13. Data Preparation</h2>
+
+<ul>
+  <li><strong>Choose the likelihood to match the data type</strong> (the most important prep decision): Gaussian for continuous, Multinomial for counts/TF-IDF, Bernoulli for binary presence. Mixed types can be handled by combining likelihoods (or discretising).</li>
+  <li><strong>Text vectorisation</strong> (for Multinomial/Bernoulli): tokenise, build a bag-of-words count matrix (<code>CountVectorizer</code>) or TF-IDF (<code>TfidfVectorizer</code>, which works well with Multinomial NB despite being non-integer). Stop-word removal and n-grams can help.</li>
+  <li><strong>Smoothing</strong> is required for sparse categorical/text features to avoid zero-probability vetoes (§3).</li>
+  <li><strong>Feature scaling is unnecessary.</strong> NB models each feature's distribution separately, so an affine rescaling $x_j\mapsto ax_j+b$ of a Gaussian feature changes only its estimated $\mu$ and $\sigma$ and leaves the decision unchanged (apart from the small <code>var_smoothing</code> term, which is tied to the largest feature variance). A nonlinear transform such as a log does change the Gaussian fit and the decisions. (Contrast KNN/SVM, where scaling is critical.)</li>
+  <li><strong>Redundant/correlated features hurt</strong> because they violate independence and are double-counted; consider removing near-duplicate features or decorrelating with PCA, though PCA replaces the natural per-feature likelihoods, so it is a trade-off.</li>
+  <li><strong>Continuous features that are non-Gaussian:</strong> transform towards normality (log, Box–Cox) for Gaussian NB, or discretise into bins and use Multinomial/categorical NB.</li>
+  <li><strong>Missing values.</strong> In principle a generative model can skip the missing feature's term in the product (marginalise it out), an advantage over discriminative models. scikit-learn's estimators do not implement this and reject NaN inputs, so in practice you impute first or write the marginalisation yourself.</li>
+  <li><strong>Class imbalance:</strong> the prior encodes it directly; adjust <code>class_prior</code> or use costs if the training balance won't match deployment.</li>
+</ul>
+
+<h2 id="s14">14. Evaluation</h2>
+
+<p>Evaluate as any classifier, with one caveat about probabilities.</p>
+<ul>
+  <li><strong>Accuracy, precision, recall, F1:</strong> standard; F1 and precision-recall under imbalance (<a href="../02-logistic-regression/">Lecture 2</a>).</li>
+  <li><strong>ROC-AUC / PR-AUC:</strong> NB's rankings are often good even when its probabilities are not, so AUC can look strong. PR-AUC for rare positives (e.g. spam).</li>
+  <li><strong>Log-loss and calibration: read with care.</strong> Because NB is typically over-confident (probabilities pushed to 0/1 by double-counted correlated evidence), its log-loss and Brier score can be poor even when accuracy is high. A reliability diagram typically shows a curve flatter than the diagonal: predictions near 1 are realised less often than stated and predictions near 0 more often (<a href="https://doi.org/10.1145/1102351.1102430">Niculescu-Mizil and Caruana, 2005</a>).</li>
+</ul>
+<p><strong>Why metrics mislead for NB specifically:</strong> the model's headline metric (accuracy) can be excellent while its probabilities are near-useless as calibrated risk estimates. If you need trustworthy probabilities (for thresholding by expected cost, or downstream decisions), calibrate NB (Platt or isotonic on a held-out set) and evaluate calibration explicitly; the raw posteriors should not be used as risk estimates.</p>
+
+<h2 id="s15">15. Validation Strategy</h2>
+<ul>
+  <li><strong>Stratified $k$-fold CV:</strong> the default, preserving class balance; used to tune $\alpha$ and choose the likelihood family.</li>
+  <li><strong>Train/test split</strong> for large corpora; keep a final untouched test set.</li>
+  <li><strong>Grouped CV</strong> when documents cluster (same author/thread) to avoid leakage from near-duplicates.</li>
+  <li><strong>Time-aware validation</strong> for evolving text (spam adapts over time): train on the past, test on the future; concept drift affects NB text models like any other.</li>
+</ul>
+<p><strong>Leakage risks:</strong> fit the vectoriser (vocabulary, IDF) inside each fold via a <code>Pipeline</code>; fitting <code>TfidfVectorizer</code> on the full corpus before splitting leaks test-set vocabulary/statistics. Also ensure the smoothing and priors are estimated only on training folds.</p>
+
+<h2 id="s16">16. Diagnostics</h2>
+<ul>
+  <li><strong>Calibration / reliability plot:</strong> the key NB diagnostic; expect over-confidence (predictions clustered near 0 and 1). If probabilities matter, this tells you to calibrate.</li>
+  <li><strong>Confusion matrix</strong> at the operating threshold.</li>
+  <li><strong>Per-feature log-likelihood ratios:</strong> inspect $\log\frac{P(x_j\mid c_1)}{P(x_j\mid c_0)}$ per feature to see which features (words) drive decisions; NB is highly interpretable this way (the "most spammy words").</li>
+  <li><strong>Gaussian-fit check</strong> (Gaussian NB): histogram or Q–Q plot of each continuous feature within each class; strong non-normality signals a wrong likelihood choice, so transform or switch family.</li>
+  <li><strong>Correlation heatmap:</strong> heavy feature correlation warns that the independence assumption (and thus calibration) is badly violated.</li>
+  <li><strong>Zero-count audit:</strong> check for features with zero counts in a class pre-smoothing; confirms smoothing is doing its job.</li>
+  <li><strong>Learning curve:</strong> NB often plateaus early (bias floor); a flat curve well below a competitor's signals underfitting from the assumption.</li>
+</ul>
+
+<h2 id="s17">17. Strengths</h2>
+<ul>
+  <li><strong>Extremely fast and cheap.</strong> $O(np)$ closed-form training, $O(Mp)$ prediction, $O(Mp)$ memory (data discarded); trains and serves at scale and updates online.</li>
+  <li><strong>Excellent with little data / many features.</strong> Estimating only $O(Mp)$ simple statistics makes it low-variance; it often outperforms lower-bias models when $n$ is small or $p\gg n$ (its natural home: text).</li>
+  <li><strong>Handles high-dimensional sparse data natively.</strong> The independence factorisation is perfectly suited to bag-of-words: thousands of features, each contributing an independent log-likelihood term.</li>
+  <li><strong>Tolerant of irrelevant features.</strong> A feature with similar distributions across classes contributes near-zero to the log-odds and is effectively ignored, so no explicit selection is needed.</li>
+  <li><strong>Interpretable.</strong> Per-feature log-likelihood ratios directly reveal which features push towards which class (the "spammy words").</li>
+  <li><strong>Missing data can be marginalised out.</strong> A missing feature's term can be dropped from the product, a benefit of the generative form (not implemented in scikit-learn; §13).</li>
+  <li><strong>Principled decision theory.</strong> Priors + a loss matrix give Bayes-optimal decisions under asymmetric costs.</li>
+  <li><strong>Correct classifications despite wrong probabilities.</strong> The sign-preservation property (§4.4) means it classifies well even when the independence assumption fails.</li>
+</ul>
+
+<h2 id="s18">18. Weaknesses and Failure Modes</h2>
+<ul>
+  <li><strong>Miscalibrated (over-confident) probabilities.</strong> Correlated features are double-counted, pushing posteriors towards 0/1. <em>Example:</em> a spam email containing "free", "free!!!", and "FREE" (near-duplicate features) yields a posterior very close to 1; the confidence is unjustified even if the label is right. Calibrate before using the numbers.</li>
+  <li><strong>Independence-violation bias.</strong> When correlations carry real, non-redundant signal, NB cannot use it and underperforms. <em>Example:</em> features "temperature" and "humidity" jointly determine an outcome via their interaction; NB, treating them independently, misses it.</li>
+  <li><strong>Zero-frequency problem (without smoothing).</strong> A single feature-value unseen in a class gives $P=0$, zeroing the entire product and vetoing the class regardless of other evidence. Smoothing is essential.</li>
+  <li><strong>Wrong likelihood family.</strong> Gaussian NB on heavily skewed or multimodal features fits poorly; using Multinomial on continuous data is meaningless. The family is an easily mistaken choice.</li>
+  <li><strong>Bias floor / underfitting.</strong> Accuracy plateaus below achievable levels when interactions matter; more data will not help.</li>
+  <li><strong>Continuous-feature sensitivity.</strong> Gaussian NB assumes unimodal, symmetric per-class features; violations degrade it silently.</li>
+  <li><strong>Sensitive to skewed priors at deployment.</strong> If training class balance differs from deployment, the priors mislead; set them deliberately.</li>
+</ul>
+
+<h2 id="s19">19. Comparison With Related Algorithms</h2>
+
+<table>
+<thead>
+<tr><th>Aspect</th><th>Naive Bayes</th><th>Logistic Regression</th><th>LDA / QDA</th><th>KNN</th></tr>
+</thead>
+<tbody>
+<tr><td>Type</td><td>generative</td><td>discriminative</td><td>generative</td><td>discriminative, lazy</td></tr>
+<tr><td>Models</td><td>$P(x\mid y)P(y)$, features independent</td><td>$P(y\mid x)$ directly</td><td>$P(x\mid y)$ full Gaussian</td><td>local labels</td></tr>
+<tr><td>Feature correlations</td><td>ignored (naive)</td><td>handled via weights</td><td>modelled (shared/own covariance)</td><td>via distance</td></tr>
+<tr><td>Training</td><td>closed-form counts $O(np)$</td><td>iterative, convex</td><td>closed-form</td><td>store the data</td></tr>
+<tr><td>Small-$n$ behaviour</td><td>excellent (low var)</td><td>can overfit</td><td>good</td><td>poor</td></tr>
+<tr><td>Calibration</td><td>poor (over-confident)</td><td>good</td><td>moderate</td><td>poor/coarse</td></tr>
+<tr><td>Boundary</td><td>linear (MNB/BNB) or quadratic (GNB)</td><td>linear</td><td>linear (LDA)/quadratic (QDA)</td><td>arbitrary</td></tr>
+</tbody>
+</table>
+
+<p><strong>NB vs Logistic Regression (the canonical pairing).</strong> They are a generative–discriminative pair: Gaussian NB with class-shared variances (and Multinomial or Bernoulli NB) has the same log-linear functional form for $P(y\mid x)$ as logistic regression, but the weights are estimated differently, NB by generative counting and LR by discriminative likelihood maximisation. Ng & Jordan (2001): NB reaches its (higher) asymptotic error faster (needs ~$O(\log p)$ samples), LR reaches its (lower) asymptotic error slower (~$O(p)$). So NB wins with little data, LR wins with plenty. LR also gives calibrated probabilities and handles correlated features; NB is faster and needs less data.</p>
+
+<p><strong>NB vs LDA/QDA.</strong> All three are generative Gaussian classifiers. Gaussian NB assumes a <em>diagonal</em> covariance (independent features → axis-aligned ellipses); LDA assumes a <em>full, shared</em> covariance (tilted but identical-shape ellipses → linear boundary); QDA assumes a <em>full, per-class</em> covariance (quadratic boundary). NB is the most constrained (most bias, least variance), QDA the least. Choose NB when $p$ is large or $n$ small (full covariances cannot be estimated); LDA/QDA when you can afford to model correlations.</p>
+
+<p><strong>NB vs KNN.</strong> Both are simple and assumption-light in different ways: NB assumes a parametric per-feature likelihood and scales to high $p$; KNN assumes only local smoothness but collapses in high $p$ (curse of dimensionality). For sparse high-dimensional text, NB is usually far better than KNN.</p>
+
+<h2 id="s20">20. When I Should Use It</h2>
+
+<p><strong>Use Naive Bayes when:</strong></p>
+<ul>
+  <li>You are doing text classification (spam, sentiment, topic), its traditional home.</li>
+  <li>Data are high-dimensional or sparse, or training data are limited; low variance pays off.</li>
+  <li>You need a fast, cheap baseline to build, serve and update online.</li>
+  <li>Features are plausibly conditionally independent or carry largely non-redundant evidence.</li>
+  <li>You need interpretable per-feature evidence.</li>
+  <li>You care about the ranking or decision more than the exact probability values.</li>
+</ul>
+
+<p><strong>Avoid (or calibrate/replace) Naive Bayes when:</strong></p>
+<ul>
+  <li>You need well-calibrated probabilities without post-hoc calibration.</li>
+  <li>Features are strongly correlated and those correlations carry the signal; use logistic regression, trees or gradient boosting.</li>
+  <li>Feature interactions are essential to the target.</li>
+  <li>You have abundant data and want the lowest achievable error; discriminative models will overtake it.</li>
+  <li>Continuous features are strongly non-Gaussian or multimodal and cannot be transformed.</li>
+</ul>
+
+<h2 id="s21">21. Python Implementation From Scratch</h2>
+
+<pre><code>import numpy as np
+
+class GaussianNBScratch:
+    """Gaussian Naive Bayes from NumPy: closed-form MLE, log-space prediction."""
+
+    def __init__(self, var_smoothing=1e-9):
+        self.var_smoothing = var_smoothing   # tiny floor to avoid divide-by-zero
+        self.classes_ = None
+        self.priors_ = None                  # log π_c
+        self.means_ = None                   # μ_cj
+        self.vars_ = None                    # σ²_cj
+
+    def fit(self, X, y):
+        X = np.asarray(X, float)
+        y = np.asarray(y)
+        self.classes_ = np.unique(y)
+        n, p = X.shape
+        M = len(self.classes_)
+
+        self.means_  = np.zeros((M, p))
+        self.vars_   = np.zeros((M, p))
+        self.priors_ = np.zeros(M)
+
+        # Closed-form MLE: per-class mean, variance and prior; counting and averaging only.
+        eps = self.var_smoothing * X.var(axis=0).max()
+        for k, c in enumerate(self.classes_):
+            Xc = X[y == c]
+            self.means_[k]  = Xc.mean(axis=0)                     # μ_cj
+            self.vars_[k]   = Xc.var(axis=0) + eps                # σ²_cj (smoothed)
+            self.priors_[k] = np.log(Xc.shape[0] / n)            # log π_c
+        return self
+
+    def _log_likelihood(self, X):
+        # log of the per-feature Gaussian, summed over features (independence).
+        # log N(x; μ, σ²) = −½ log(2πσ²) − (x−μ)²/(2σ²)
+        M = len(self.classes_)
+        log_lh = np.zeros((X.shape[0], M))
+        for k in range(M):
+            var = self.vars_[k]
+            term = -0.5 * np.log(2 * np.pi * var)                 # normalising constant
+            term = term - (X - self.means_[k]) ** 2 / (2 * var)   # exponent
+            log_lh[:, k] = term.sum(axis=1) + self.priors_[k]     # Σ_j + log prior
+        return log_lh
+
+    def predict(self, X):
+        X = np.asarray(X, float)
+        return self.classes_[np.argmax(self._log_likelihood(X), axis=1)]
+
+    def predict_proba(self, X):
+        X = np.asarray(X, float)
+        log_lh = self._log_likelihood(X)
+        # Softmax with the log-sum-exp trick for numerical stability.
+        log_lh -= log_lh.max(axis=1, keepdims=True)
+        probs = np.exp(log_lh)
+        return probs / probs.sum(axis=1, keepdims=True)
+
+# --- demo ---------------------------------------------------------
+from sklearn.datasets import load_iris
+X, y = load_iris(return_X_y=True)
+model = GaussianNBScratch().fit(X, y)
+print("accuracy:", (model.predict(X) == y).mean())</code></pre>
+
+<p><strong>Correspondence to the maths.</strong></p>
+<ul>
+  <li><code>means_</code>, <code>vars_</code>, <code>priors_</code> are the closed-form MLE estimates $\hat\mu_{cj},\hat\sigma_{cj}^2,\hat\pi_c$ of §4.3: counting and averaging, no iteration.</li>
+  <li><code>_log_likelihood</code> computes $\log\pi_c+\sum_j\log P(x_j\mid c)$ from §3, summing the per-feature log-Gaussians (the independence assumption made concrete by the <code>.sum(axis=1)</code>).</li>
+  <li><code>predict</code> is the argmax of §3; <code>predict_proba</code> applies the log-sum-exp softmax (§5), the numerically stable normalisation.</li>
+</ul>
+
+<p><em>(A Multinomial NB from scratch is shorter still: accumulate per-class feature-count sums, add $\alpha$, normalise to get $\theta_{cj}$, and score with $\sum_j x_j\log\theta_{cj}+\log\pi_c$.)</em></p>
+
+<h2 id="s22">22. Production Python Implementation</h2>
+
+<pre><code>import numpy as np
+from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+from sklearn.naive_bayes import MultinomialNB, GaussianNB, BernoulliNB
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
+from sklearn.metrics import classification_report
+from sklearn.calibration import CalibratedClassifierCV
+
+# ---- Text classification with Multinomial NB (its classic use) ----
+# Vectoriser lives in the pipeline so vocabulary/IDF are refit per CV fold (no leakage).
+text_clf = Pipeline([
+    ("tfidf", TfidfVectorizer(sublinear_tf=True, stop_words="english",
+                              ngram_range=(1, 2), min_df=2)),
+    ("nb",    MultinomialNB()),
+])
+
+grid = GridSearchCV(
+    text_clf,
+    {"nb__alpha": np.logspace(-3, 1, 9),      # tune smoothing
+     "tfidf__ngram_range": [(1, 1), (1, 2)]},
+    scoring="f1_macro",
+    cv=StratifiedKFold(5, shuffle=True, random_state=0),
+    n_jobs=-1,
+)
+grid.fit(docs_train, y_train)
+print("best:", grid.best_params_)
+print(classification_report(y_test, grid.predict(docs_test)))
+
+# ---- If you need trustworthy probabilities, CALIBRATE NB ----------
+# NB is typically over-confident; wrap it to recalibrate on held-out data.
+calibrated = CalibratedClassifierCV(grid.best_estimator_, method="isotonic", cv=5)
+calibrated.fit(docs_train, y_train)
+proba = calibrated.predict_proba(docs_test)   # calibrated on held-out folds
+
+# ---- Continuous features → Gaussian NB ---------------------------
+gnb = GaussianNB()                             # var_smoothing is its main knob
+gnb.fit(X_train_continuous, y_train)</code></pre>
+
+<p><strong>Notes.</strong> Use <code>MultinomialNB</code> with <code>TfidfVectorizer</code>/<code>CountVectorizer</code> for text (put the vectoriser in the pipeline to prevent vocabulary leakage), <code>BernoulliNB</code> for binary presence features, <code>GaussianNB</code> for continuous. Because NB probabilities are over-confident, wrap with <code>CalibratedClassifierCV</code> whenever the probability values (not just the labels) feed a downstream decision.</p>
+
+<h2 id="s23">23. Library Parameters Mapped to Mathematics</h2>
+
+<p><strong><code>sklearn.naive_bayes.MultinomialNB / BernoulliNB</code></strong></p>
+<ul>
+  <li><code>alpha</code>: the additive smoothing pseudocount $\alpha$ (§3): $\hat\theta_{cj}=(N_{cj}+\alpha)/(N_c+\alpha K)$. Larger $\alpha$ → estimates pulled towards uniform (more bias, less variance); $\alpha\to0$ → raw counts (risk of zero-probability vetoes). The Dirichlet-prior strength of §8.</li>
+  <li><code>fit_prior</code>: whether to learn class priors $\hat\pi_c=N_c/N$ from data (<code>True</code>) or use a uniform prior (<code>False</code>); toggles the $\log\pi_c$ term.</li>
+  <li><code>class_prior</code>: explicitly set the priors $\pi_c$ (e.g. to match deployment base rates or encode costs, §8).</li>
+  <li><code>binarize</code> (BernoulliNB): threshold to convert features to 0/1 before the Bernoulli likelihood; defines "present" (§10).</li>
+</ul>
+
+<p><strong><code>sklearn.naive_bayes.GaussianNB</code></strong></p>
+<ul>
+  <li><code>var_smoothing</code>: a fraction of the largest feature variance added to every $\hat\sigma_{cj}^2$ for numerical stability; prevents a near-zero variance from producing an infinitely-peaked Gaussian and exploding log-likelihoods (the <code>eps</code> in §21).</li>
+  <li><code>priors</code>: user-specified class priors $\pi_c$, as above.</li>
+</ul>
+
+<p><strong>Note on absent parameters.</strong> There is no learning rate, no regulariser $C$, no iteration count, because training is closed-form (§9). The only real knobs are the smoothing, the priors, and (implicitly, by choosing the estimator class) the likelihood family.</p>
+
+<h2 id="s24">24. Common Interview Questions</h2>
+
+<p><strong>1. What exactly is "naive" about Naive Bayes, and why do we accept it?</strong><br>
+The assumption that features are conditionally independent given the class, $P(x\mid y)=\prod_j P(x_j\mid y)$. We accept it because modelling the full joint needs $O(2^p)$ parameters per class (infeasible), while the factorisation needs only $O(p)$, an exponential-to-linear collapse that makes the model estimable and fast.</p>
+
+<p><strong>2. Derive the Naive Bayes decision rule from Bayes' theorem.</strong><br>
+$P(y{=}c\mid x)\propto P(y{=}c)P(x\mid y{=}c)=\pi_c\prod_j P(x_j\mid y{=}c)$ (dropping the class-independent normaliser and applying independence). Predict $\arg\max_c$ of this, or of its log $\log\pi_c+\sum_j\log P(x_j\mid c)$.</p>
+
+<p><strong>3. Why does Naive Bayes classify well even when the independence assumption is false?</strong><br>
+Classification depends only on the <em>sign</em> of the log-posterior-odds, not its magnitude. Correlated features distort the magnitude (making probabilities over-confident) but usually preserve the sign, so the argmax, the class prediction, remains correct even though the probability is wrong (Domingos–Pazzani).</p>
+
+<p><strong>4. What is the zero-frequency problem and how does smoothing fix it?</strong><br>
+If a feature-value never appears with a class in training, its estimated likelihood is 0, which zeroes the entire product and vetoes that class regardless of other evidence. Laplace/Lidstone smoothing adds a pseudocount $\alpha$: $\hat\theta=(N_{cj}+\alpha)/(N_c+\alpha K)$, guaranteeing nonzero probabilities. It equals the posterior mean under a Dirichlet prior.</p>
+
+<p><strong>5. When should you use Gaussian vs Multinomial vs Bernoulli NB?</strong><br>
+Gaussian for continuous features (models mean/variance per class); Multinomial for count/frequency features like word counts or TF-IDF; Bernoulli for binary presence/absence (and it uses feature absence as evidence). Matching the family to the data type is critical.</p>
+
+<p><strong>6. Why is Naive Bayes so effective for text classification?</strong><br>
+Text is extremely high-dimensional and sparse (thousands of word features); NB's per-feature factorisation handles this natively, needs little data (low variance), trains in one pass, and words carry largely non-redundant evidence, so the independence assumption is tolerable and the model is fast and strong.</p>
+
+<p><strong>7. Explain the generative vs discriminative distinction using NB and logistic regression.</strong><br>
+NB (generative) models the joint $P(x,y)=P(x\mid y)P(y)$ and derives $P(y\mid x)$; LR (discriminative) models $P(y\mid x)$ directly. With shared class variances they have the same log-linear posterior form but estimate the parameters differently. NB needs less data and can generate/handle missing features; LR usually achieves lower error with enough data and is better calibrated.</p>
+
+<p><strong>8. Are Naive Bayes probabilities trustworthy? Why or why not?</strong><br>
+Usually not: they are over-confident (pushed towards 0/1) because correlated features are double-counted, violating independence. The rankings/labels are often fine, but the probability values need post-hoc calibration (Platt/isotonic) before use in cost-sensitive decisions.</p>
+
+<p><strong>9. How does Naive Bayes handle missing feature values?</strong><br>
+In principle, being generative, it can marginalise out a missing feature by omitting its term from the product $\prod_j P(x_j\mid c)$, using only the observed features; discriminative models generally cannot do this without imputation. scikit-learn's implementations do not support this, so missing values must be imputed first.</p>
+
+<p><strong>10. Compare the bias–variance and sample-complexity of NB and logistic regression.</strong><br>
+NB is higher-bias (the assumption) but lower-variance; it converges to its (worse) asymptotic error with far fewer samples (~$O(\log p)$ vs $O(p)$). So NB wins in the small-data regime and LR overtakes it as data grow (Ng & Jordan, 2001).</p>
+
+<p><strong>11. (Debugging) Your Gaussian NB performs poorly on a skewed continuous feature. What's wrong and what do you do?</strong><br>
+Gaussian NB assumes each feature is normally distributed within each class; a strongly skewed/multimodal feature violates this, so its likelihood is misestimated. Fix by transforming towards normality (log/Box–Cox), discretising into bins with Multinomial NB, or switching to a model without the Gaussian assumption.</p>
+
+<p><strong>12. Why doesn't Naive Bayes need feature scaling?</strong><br>
+It models each feature's distribution separately (its own $\mu,\sigma$ or $\theta$), so an affine rescaling of a feature only rescales its estimated parameters, with no effect on the decision (a nonlinear transform does change the fit). Unlike KNN/SVM, distances across features are never combined, so scale is irrelevant.</p>
+
+<h2 id="s25">25. Common Misconceptions</h2>
+<ol>
+  <li><strong>"Naive Bayes assumes features are independent."</strong> It assumes features are <em>conditionally</em> independent <em>given the class</em>, a weaker (though still strong) statement. Marginally, the features it uses can be correlated.</li>
+  <li><strong>"Because the assumption is usually false, NB is unreliable."</strong> Its classifications are often good despite the false assumption (sign preservation, §4.4); the probability calibration suffers first.</li>
+  <li><strong>"NB outputs proper probabilities."</strong> Its posteriors are typically over-confident (near 0/1). Use them for ranking/decisions, but calibrate before treating them as true probabilities.</li>
+  <li><strong>"You should always use $\alpha=1$."</strong> Laplace ($\alpha=1$) is a default; the best smoothing depends on vocabulary size and sparsity and should be cross-validated, especially for large sparse text.</li>
+  <li><strong>"Naive Bayes needs feature scaling / lots of data."</strong> It needs neither: it is invariant to affine rescaling (each feature is modelled separately) and data-efficient (low variance from few, simple parameters).</li>
+  <li><strong>"Multinomial and Bernoulli NB are interchangeable for text."</strong> They differ: Multinomial uses word <em>counts</em> and ignores absence; Bernoulli uses binary presence and explicitly models <em>absence</em>. They can give quite different results depending on document length and vocabulary.</li>
+</ol>
+
+<h2 id="s26">26. Exercises</h2>
+
+<h3>Level 1: Conceptual</h3>
+<ol>
+  <li>State the conditional-independence assumption precisely and explain why it is needed (parameter-counting argument).</li>
+  <li>Explain the difference between generative and discriminative classifiers, giving one example of each and one advantage of each.</li>
+  <li>Why does Naive Bayes often classify correctly even though its probability estimates are wrong?</li>
+  <li>Give a scenario where Multinomial NB and Bernoulli NB would behave differently, and say which you'd prefer.</li>
+  <li>Explain why Naive Bayes does not require feature scaling but KNN does.</li>
+</ol>
+
+<h3>Level 2: Mathematical</h3>
+<ol>
+  <li>Derive the MAP decision rule $\hat y=\arg\max_c\pi_c\prod_j P(x_j\mid c)$ from Bayes' theorem, stating what you drop and why.</li>
+  <li>Show that the maximum-likelihood estimate of a class prior is $N_c/N$ and of a Gaussian feature mean is the sample mean.</li>
+  <li>Write the two-class log-posterior-odds for Gaussian NB and show that with equal per-class variances the decision boundary is linear (else quadratic).</li>
+  <li>Show that adding pseudocount $\alpha$ corresponds to the posterior mean under a Dirichlet($\alpha,\dots,\alpha$) prior.</li>
+  <li>Given the spam data of §6, recompute the posterior for an email containing <em>both</em> "free" and "meeting"; interpret the result.</li>
+</ol>
+
+<h3>Level 3: Applied</h3>
+<ol>
+  <li>Implement Multinomial NB from scratch (log-space, with smoothing) and match scikit-learn on a text dataset (e.g. 20 Newsgroups).</li>
+  <li>Compare Gaussian NB, Multinomial NB, and Bernoulli NB on the same text corpus (with appropriate vectorisation) and explain the differences.</li>
+  <li>Produce a reliability diagram for a fitted NB model, then calibrate it (isotonic) and re-plot; quantify the log-loss improvement.</li>
+  <li>Empirically reproduce Ng & Jordan: plot test error vs training-set size for NB and logistic regression on the same data and identify the crossover.</li>
+  <li>Tune $\alpha$ by cross-validation on a sparse text task and show its effect on accuracy and on the extremeness of the predicted probabilities.</li>
+</ol>
+
+<h2 id="s26s">26(s). Solutions</h2>
+
+<h3>Level 1</h3>
+<ol>
+  <li>$P(x\mid y)=\prod_j P(x_j\mid y)$: features independent given the class. Needed because the full joint over $p$ (say binary) features has $2^p-1$ parameters per class (unestimable), while the factorisation needs only $p$ per class.</li>
+  <li>Generative models model $P(x,y)$ (e.g. NB): they can generate data, marginalise missing features and need less data. Discriminative models model $P(y\mid x)$ (e.g. logistic regression): usually lower error with ample data and better calibrated.</li>
+  <li>The classification is the sign of the summed log-odds; correlated features distort the magnitude (over-confidence) but usually keep the sign correct, so the argmax is right even when the probability is wrong.</li>
+  <li>Long documents where a word appears many times: Multinomial (uses counts) rewards repetition; Bernoulli (presence only) treats one occurrence like many and also credits absence. For short texts / presence-driven tasks Bernoulli can win; for count-rich text prefer Multinomial.</li>
+  <li>NB models each feature's distribution separately, so an affine rescaling of a feature only rescales its parameters and has no effect. KNN combines features into a single distance, so scale changes which points are nearest and thus the prediction.</li>
+</ol>
+
+<h3>Level 2</h3>
+<ol>
+  <li>$P(c\mid x)=\pi_c P(x\mid c)/P(x)$; drop $P(x)$ (constant across $c$, doesn't affect argmax) and factor $P(x\mid c)=\prod_j P(x_j\mid c)$ (independence) → $\hat y=\arg\max_c\pi_c\prod_jP(x_j\mid c)$.</li>
+  <li>Prior: maximise $\sum_c N_c\log\pi_c$ s.t. $\sum\pi_c=1$; Lagrange gives $\hat\pi_c=N_c/N$. Gaussian mean: maximise $-\sum_i(x_i-\mu)^2/(2\sigma^2)$; setting derivative to 0 gives $\hat\mu=\frac1{N_c}\sum x_i$.</li>
+  <li>$\log\frac{P(1\mid x)}{P(0\mid x)}=\log\frac{\pi_1}{\pi_0}+\sum_j\big[-\tfrac12\log\frac{\sigma_{1j}^2}{\sigma_{0j}^2}-\frac{(x_j-\mu_{1j})^2}{2\sigma_{1j}^2}+\frac{(x_j-\mu_{0j})^2}{2\sigma_{0j}^2}\big]$. If $\sigma_{1j}=\sigma_{0j}$ the quadratic $x_j^2$ terms cancel, leaving a linear function of $x$ (linear boundary); unequal variances leave $x_j^2$ terms → quadratic boundary.</li>
+  <li>With a Dirichlet($\alpha$) prior and multinomial counts $N_{cj}$, the posterior is Dirichlet($N_{cj}+\alpha$); its mean for component $j$ is $(N_{cj}+\alpha)/\sum_j(N_{cj}+\alpha)=(N_{cj}+\alpha)/(N_c+\alpha K)$, the smoothing formula.</li>
+  <li>Observation free=1, meeting=1. Likelihoods: spam $=0.75\times0.25=0.1875$; ham $=0.20\times0.70=0.140$. Posteriors $\propto$ spam $0.4286\times0.1875=0.0804$, ham $0.5714\times0.140=0.0800$ → $P(\text{spam})=0.0804/0.1604\approx0.501$, close to a toss-up, because "free" (spammy) and "meeting" (hammy) provide opposing evidence that nearly cancels.</li>
+</ol>
+
+<h3>Level 3</h3>
+<ol>
+  <li>Expected outcome: a log-space MNB (accumulate class-feature count sums, add $\alpha$, normalise to $\theta_{cj}$, score $\sum_j x_j\log\theta_{cj}+\log\pi_c$) should reproduce scikit-learn's predictions up to floating point when the same $\alpha$ and priors are used.</li>
+  <li>Expected pattern: on count-vectorised text, Multinomial should beat Bernoulli on longer documents (counts matter) and Gaussian (the wrong likelihood for counts) should do worst; Bernoulli can be competitive on short texts. Report the measured figures.</li>
+  <li>Expected pattern: the raw reliability curve shows over-confidence (below the diagonal at the high end, above at the low end); isotonic calibration should pull it towards the diagonal and lower log-loss and Brier score. Quantify both before and after.</li>
+  <li>Expected pattern: NB has lower error at small $n$ and a flatter curve; logistic regression starts worse but keeps improving and crosses below NB as $n$ grows. Where the crossover falls depends on the data.</li>
+  <li>Expected pattern: very small $\alpha$ gives extreme probabilities and possibly unstable accuracy; increasing $\alpha$ tempers the probabilities and stabilises accuracy up to a point, after which smoothing washes out signal and accuracy falls.</li>
+</ol>
+
+<h2 id="s27">27. Summary Cheat Sheet: Naive Bayes</h2>
+
+<table>
+<thead><tr><th>Attribute</th><th>Summary</th></tr></thead>
+<tbody>
+<tr><td><strong>Problem type</strong></td><td>Supervised classification (generative, probabilistic)</td></tr>
+<tr><td><strong>Model</strong></td><td>$P(y{=}c\mid x)\propto \pi_c\prod_j P(x_j\mid y{=}c)$</td></tr>
+<tr><td><strong>Core assumption</strong></td><td>Features conditionally independent given the class ("naive")</td></tr>
+<tr><td><strong>Likelihood families</strong></td><td>Gaussian (continuous), Multinomial (counts), Bernoulli (binary)</td></tr>
+<tr><td><strong>Objective / fitting</strong></td><td>Maximum likelihood: closed-form counts and moments (no iteration)</td></tr>
+<tr><td><strong>Decision rule</strong></td><td>$\arg\max_c\big[\log\pi_c+\sum_j\log P(x_j\mid c)\big]$</td></tr>
+<tr><td><strong>Hyperparameters</strong></td><td>Smoothing $\alpha$, likelihood family, class priors, (Bernoulli) binarize</td></tr>
+<tr><td><strong>Scaling required?</strong></td><td>No: each feature modelled separately (invariant to affine rescaling)</td></tr>
+<tr><td><strong>Handles nonlinearities?</strong></td><td>Boundary linear (MNB/BNB) or quadratic (GNB); no interactions</td></tr>
+<tr><td><strong>Handles categoricals?</strong></td><td>Yes: Multinomial/Bernoulli/categorical likelihoods</td></tr>
+<tr><td><strong>Interpretable?</strong></td><td>Yes: per-feature log-likelihood ratios</td></tr>
+<tr><td><strong>Probabilities?</strong></td><td>Yes but over-confident (poorly calibrated); calibrate if used</td></tr>
+<tr><td><strong>Training cost</strong></td><td>$O(np)$ (one pass); online-updatable</td></tr>
+<tr><td><strong>Prediction cost</strong></td><td>$O(Mp)$ per example; $O(Mp)$ memory</td></tr>
+<tr><td><strong>Main advantages</strong></td><td>Very fast, low-variance, great for text/sparse/small data, tolerant of irrelevant features</td></tr>
+<tr><td><strong>Major weaknesses</strong></td><td>Miscalibrated probabilities, ignores correlations/interactions, needs right likelihood family, bias floor</td></tr>
+<tr><td><strong>Ideal use cases</strong></td><td>Spam/text classification, high-dim sparse data, fast baselines, streaming</td></tr>
+</tbody>
+</table>
+
+<p><strong>Connections to carry forward:</strong> Naive Bayes is the course's first fully Bayesian, generative model, introducing the prior × likelihood → posterior machinery that reappears in Gaussian Mixture Models (<span class="plain-ref" title="Lecture 15 is released in Week 15">coming in Week 15</span>, where the class label becomes a latent variable that is no longer observed, which calls for the EM algorithm) and in Gaussian Processes (<span class="plain-ref" title="Lecture 17 is released in Week 17">coming in Week 17</span>, Bayesian inference over functions). It forms the canonical generative–discriminative pair with logistic regression (<a href="../02-logistic-regression/">Lecture 2</a>): the same log-linear posterior when the class variances are shared, different estimation, opposite ends of the small-data/large-data trade-off. Its geometric special cases connect it to LDA/QDA and, via the equal-variance linear-boundary result, back to the linear classifiers of Part I. It also illustrates two recurring ideas: maximum likelihood as the unifying fitting principle, and the distinction between a model that is a poor description of the data yet a good decision rule.</p>
+</main>
+</div>
+</body>
+</html>
