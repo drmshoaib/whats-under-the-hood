@@ -3,6 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="description" content="What's Under the Hood? #05: Maximum margin, soft margins, the dual derivation, support vectors, and the kernel trick.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="#05 Support Vector Machines · What&#x27;s Under the Hood?">
+<meta property="og:description" content="Maximum margin, soft margins, the dual derivation, support vectors, and the kernel trick.">
+<meta property="og:url" content="https://drmshoaib.github.io/whats-under-the-hood/05-support-vector-machines/">
+<meta property="og:image" content="https://drmshoaib.github.io/whats-under-the-hood/05-support-vector-machines/cover-05-support-vector-machines.png">
+<meta property="og:image:width" content="1920">
+<meta property="og:image:height" content="1080">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="author" content="Dr. Muhammad Shoaib">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>#05 Support Vector Machines · What's Under the Hood?</title>
 <script>
@@ -310,6 +319,8 @@ window.MathJax = {
 
 <p><strong>Why it was developed.</strong> Vapnik and colleagues (1963 linear version; 1992–1995 kernel and soft-margin versions) grounded the SVM in <em>statistical learning theory</em>. The margin is not an arbitrary aesthetic: VC theory shows that large-margin classifiers have low capacity (independent of the ambient dimension), so they generalise well even in high dimensions. This gave SVMs a rare combination — strong theory plus excellent empirical performance — and they dominated practical classification (text, bioinformatics, handwriting) from the late 1990s until deep learning took over on perceptual tasks around 2012.</p>
 
+<p><strong>Where it made its name: text.</strong> Text classification is the application that established the method. Joachims (1998) showed linear SVMs on bag-of-words vectors outperforming the other classifiers he tested on the Reuters news-categorisation benchmark, and Pang, Lee and Vaithyanathan (2002) found the SVM the most accurate of the three methods they compared for classifying film reviews as positive or negative. Text suits the method: a vocabulary yields tens of thousands of sparse features against comparatively few labelled documents, the high-$p$, moderate-$n$ regime in which margin-based capacity control matters (§11). §6.2 works a small review classifier by hand.</p>
+
 <p><strong>Where it sits.</strong> The SVM is <strong>supervised</strong>, <strong>parametric</strong> in the linear case but effectively <strong>non-parametric</strong> when kernelised, <strong>discriminative</strong> (it models the boundary, not probabilities), and a <strong>maximum-margin</strong> / <strong>large-margin</strong> method. It is the discriminative, margin-based counterpart to logistic regression, and — via kernels — the bridge from linear models to the flexible nonlinear methods of the rest of the course. SVMs also do regression (SVR) and outlier detection (one-class SVM); we focus on classification.</p>
 
 <p><strong>Assumptions.</strong></p>
@@ -426,6 +437,8 @@ PREDICTION for x:
 
 <h2 id="s6">6. Worked Numerical Example</h2>
 
+<h3>6.1 A geometric example</h3>
+
 <p>A tiny hard-margin, linearly separable problem in 2D. Two points per class placed symmetrically:</p>
 
 <table>
@@ -493,6 +506,86 @@ $$ (0,0):\ -1(0-1)=1\ \checkmark\quad (-1,-1):\ -1(-1-1-1)=3\ \checkmark $$
 </svg>
 </div>
 <figcaption>The worked example. The boundary x&#8321;+x&#8322;&#8722;1=0 sits midway between the classes; the dashed margin lines touch the two support vectors (1,1) and (0,0), each with functional margin 1. The far points (2,2) and (&#8722;1,&#8722;1) have &#945;=0 and do not affect the solution.</figcaption>
+</figure>
+
+<h3>6.2 A text example: classifying film reviews</h3>
+
+<p>Text is the application on which SVMs made their reputation (§1), so the second example is a small sentiment classifier. Each review is reduced to a <em>bag of words</em>: word order is discarded and only counts are kept. To keep the problem solvable by hand the vocabulary has two words; a real classifier applies exactly the same mechanics to tens of thousands of words (§13, §22). Let $x_1$ be the number of times "great" appears, $x_2$ the number of times "boring" appears, and $y=+1$ for a positive review, $-1$ for a negative one.</p>
+
+<table>
+<thead><tr><th>$i$</th><th>Review</th><th>$x_1$ (great)</th><th>$x_2$ (boring)</th><th>$y_i$</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>"Great, great film."</td><td>2</td><td>0</td><td>+1</td></tr>
+<tr><td>2</td><td>"Great cast."</td><td>1</td><td>0</td><td>+1</td></tr>
+<tr><td>3</td><td>"Great score, great cast, boring middle."</td><td>2</td><td>1</td><td>+1</td></tr>
+<tr><td>4</td><td>"Boring."</td><td>0</td><td>1</td><td>−1</td></tr>
+<tr><td>5</td><td>"Boring, long and boring."</td><td>0</td><td>2</td><td>−1</td></tr>
+<tr><td>6</td><td>"Great poster, boring film."</td><td>1</td><td>1</td><td>−1</td></tr>
+</tbody>
+</table>
+
+<p><strong>Step 1 — guess the support vectors.</strong> The emphatic reviews 1, 4 and 5 lie far from any plausible boundary. The candidates are the borderline reviews: the faint praise of review 2, the mixed but positive review 3, and the mixed and negative review 6. Assume all three sit on the kerbs.</p>
+
+<p><strong>Step 2 — impose the canonical constraints</strong> $y_i(w^\top x_i+b)=1$ on reviews 2, 3 and 6:</p>
+$$ w_1+b=1,\qquad 2w_1+w_2+b=1,\qquad -(w_1+w_2+b)=1. $$
+<p>Subtracting the first equation from the second gives $w_1+w_2=0$; the third then gives $b=-1$, so $w_1=2$ and $w_2=-2$. The decision function is</p>
+$$ f(x)=2x_1-2x_2-1. $$
+
+<p><strong>Step 3 — check all constraints.</strong> The values of $y_i f(x_i)$ for reviews 1–6 are $3,\,1,\,1,\,3,\,5,\,1$. All are at least 1, and reviews 2, 3 and 6 attain exactly 1.</p>
+
+<p><strong>Step 4 — dual weights.</strong> Write $w=\sum_i\alpha_i y_i x_i$ over the three candidates, with $\sum_i\alpha_i y_i=0$:</p>
+$$ \alpha_2(1,0)+\alpha_3(2,1)-\alpha_6(1,1)=(2,-2),\qquad \alpha_2+\alpha_3-\alpha_6=0. $$
+<p>The second component gives $\alpha_3-\alpha_6=-2$. Substituting $\alpha_6=\alpha_2+\alpha_3$ into the first component gives $\alpha_3=2$, hence $\alpha_6=4$ and $\alpha_2=2$; reviews 1, 4 and 5 have $\alpha_i=0$. Every $\alpha_i\ge0$, so the KKT conditions of §4.4 hold and the guess in Step 1 is certified optimal. The margin is $1/\|w\|=1/\sqrt8\approx0.354$ and the street is $2/\sqrt8\approx0.707$ wide.</p>
+
+<p><strong>Reading the model.</strong> Each "great" adds 2 to the score, each "boring" subtracts 2, and every review starts at $-1$. A review that uses the two words equally often, or uses neither, therefore scores $-1$ and is classed negative. That tie-break comes from review 6: without it the solution is $w=(1,-1)$, $b=0$, and a tied review sits exactly on the boundary (Exercise, Level 2). The three emphatic reviews carry $\alpha_i=0$; delete them and refit, and the weights, the bias and every prediction are unchanged. A large corpus behaves the same way: unambiguous reviews dominate the data and contribute nothing to the solution, while the boundary is fixed by the hedged and mixed reviews closest to it. The example also shows the main limitation of a bag of words: "not great" and "great" have the same count of "great", so negation is invisible unless word pairs (bigrams) are added as features.</p>
+
+<figure>
+<div class="fig-wrap">
+<svg viewBox="0 0 380 300" role="img" aria-label="Film-review example: six reviews plotted by counts of the words great and boring, the maximum-margin boundary, its margins, and the three support vectors">
+  <!-- mapping: x_px = 60 + 90*x1 ; y_px = 260 - 90*x2 -->
+  <line x1="40" y1="260" x2="350" y2="260" stroke="var(--border)" stroke-width="1.2"/>
+  <line x1="60" y1="20" x2="60" y2="280" stroke="var(--border)" stroke-width="1.2"/>
+  <text x="300" y="282" font-family="sans-serif" font-size="11" fill="var(--muted)">"great" count</text>
+  <text x="66" y="28" font-family="sans-serif" font-size="11" fill="var(--muted)">"boring" count</text>
+  <text x="147" y="276" font-family="sans-serif" font-size="9" fill="var(--muted)">1</text>
+  <text x="237" y="276" font-family="sans-serif" font-size="9" fill="var(--muted)">2</text>
+  <text x="48" y="173" font-family="sans-serif" font-size="9" fill="var(--muted)">1</text>
+  <text x="48" y="83" font-family="sans-serif" font-size="9" fill="var(--muted)">2</text>
+  <!-- boundary 2x1 - 2x2 - 1 = 0, i.e. x2 = x1 - 0.5 -->
+  <line x1="96" y1="269" x2="321" y2="44" stroke="var(--fg)" stroke-width="2.2"/>
+  <text x="250" y="140" font-family="sans-serif" font-size="10" fill="var(--fg)">2x&#8321;&#8722;2x&#8322;&#8722;1=0</text>
+  <!-- kerbs: x2 = x1 - 1 (f=+1) and x2 = x1 (f=-1) -->
+  <line x1="141" y1="269" x2="321" y2="89" stroke="var(--accent-light)" stroke-width="1" stroke-dasharray="5 4"/>
+  <line x1="51" y1="269" x2="285" y2="35" stroke="var(--accent-light)" stroke-width="1" stroke-dasharray="5 4"/>
+  <!-- support vectors ringed: review 2 (1,0), review 3 (2,1), review 6 (1,1) -->
+  <circle cx="150" cy="260" r="10" fill="none" stroke="#d9534f" stroke-width="2"/>
+  <circle cx="240" cy="170" r="10" fill="none" stroke="#d9534f" stroke-width="2"/>
+  <circle cx="150" cy="170" r="10" fill="none" stroke="#d9534f" stroke-width="2"/>
+  <!-- positive reviews (filled): 1 (2,0), 2 (1,0), 3 (2,1) -->
+  <circle cx="240" cy="260" r="6" fill="var(--accent)"/>
+  <circle cx="150" cy="260" r="6" fill="var(--accent)"/>
+  <circle cx="240" cy="170" r="6" fill="var(--accent)"/>
+  <!-- negative reviews (open): 4 (0,1), 5 (0,2), 6 (1,1) -->
+  <circle cx="60" cy="170" r="6" fill="none" stroke="var(--accent-light)" stroke-width="2.2"/>
+  <circle cx="60" cy="80" r="6" fill="none" stroke="var(--accent-light)" stroke-width="2.2"/>
+  <circle cx="150" cy="170" r="6" fill="none" stroke="var(--accent-light)" stroke-width="2.2"/>
+  <!-- review numbers -->
+  <text x="246" y="252" font-family="sans-serif" font-size="10" fill="var(--fg)">1</text>
+  <text x="156" y="252" font-family="sans-serif" font-size="10" fill="var(--fg)">2</text>
+  <text x="252" y="166" font-family="sans-serif" font-size="10" fill="var(--fg)">3</text>
+  <text x="70" y="166" font-family="sans-serif" font-size="10" fill="var(--fg)">4</text>
+  <text x="70" y="76" font-family="sans-serif" font-size="10" fill="var(--fg)">5</text>
+  <text x="128" y="160" font-family="sans-serif" font-size="10" fill="var(--fg)">6</text>
+  <!-- legend (lower right, clear of the kerbs) -->
+  <circle cx="290" cy="185" r="6" fill="var(--accent)"/>
+  <text x="300" y="189" font-family="sans-serif" font-size="10" fill="var(--fg)">positive</text>
+  <circle cx="290" cy="205" r="6" fill="none" stroke="var(--accent-light)" stroke-width="2.2"/>
+  <text x="300" y="209" font-family="sans-serif" font-size="10" fill="var(--fg)">negative</text>
+  <circle cx="290" cy="225" r="8" fill="none" stroke="#d9534f" stroke-width="2"/>
+  <text x="302" y="229" font-family="sans-serif" font-size="10" fill="var(--fg)">SV</text>
+</svg>
+</div>
+<figcaption>The film-review example, numbered as in the table. Reviews 2, 3 and 6, the faint, mixed and borderline ones, sit on the kerbs and fix the boundary 2x&#8321;&#8722;2x&#8322;&#8722;1=0. The emphatic reviews 1, 4 and 5 have &#945;=0 and could be deleted without changing the model.</figcaption>
 </figure>
 
 <h2 id="s7">7. Geometry and Visual Interpretation</h2>
@@ -944,6 +1037,7 @@ The primal/dual are convex QPs, so the optimal $w$ (and the objective value) is 
   <li>Derive the hinge-loss form by eliminating the slack variables from the soft-margin primal.</li>
   <li>For the worked example of §6, verify the dual solution $\alpha_1=\alpha_3=1$, $\alpha_2=\alpha_4=0$ satisfies both dual constraints and reproduces $w=(1,1)$.</li>
   <li>Show the RBF kernel corresponds to an infinite-dimensional feature map by expanding $e^{-\gamma\|x-x'\|^2}$ (hint: expand the exponential of the cross term as a power series).</li>
+<li>For the film-review example of §6.2, remove review 6 and solve the hard-margin problem again. Show that the solution becomes $w=(1,-1)$, $b=0$, and explain what now happens to a review that uses "great" and "boring" equally often.</li>
 </ol>
 
 <h3>Level 3: Applied</h3>
@@ -973,6 +1067,7 @@ The primal/dual are convex QPs, so the optimal $w$ (and the objective value) is 
   <li>The constraint $y_i(w^\top x_i+b)\ge1-\xi_i$ with $\xi_i\ge0$ and minimised $\xi$ forces $\xi_i=\max(0,1-y_i(w^\top x_i+b))$; substituting into $\tfrac12\|w\|^2+C\sum_i\xi_i$ gives the hinge form.</li>
   <li>$\sum_i\alpha_i y_i=1\cdot1+1\cdot(-1)=0$ ✓; $0\le\alpha_i\le C$ ✓; $w=\alpha_1 y_1 x_1+\alpha_3 y_3 x_3=(1)(1)(1,1)+(1)(-1)(0,0)=(1,1)$ ✓, matching §6.</li>
   <li>$e^{-\gamma\|x-x'\|^2}=e^{-\gamma\|x\|^2}e^{-\gamma\|x'\|^2}e^{2\gamma x^\top x'}$; expanding $e^{2\gamma x^\top x'}=\sum_{k=0}^\infty\frac{(2\gamma)^k}{k!}(x^\top x')^k$ gives an infinite sum of polynomial kernels, i.e. an infinite-dimensional feature map.</li>
+<li>Without review 6 the closest opposite pair is review 2, $(1,0)$, and review 4, $(0,1)$. The perpendicular bisector of the segment joining them is $x_1-x_2=0$; the canonical constraints $w_1+b=1$ and $-(w_2+b)=1$ with $w=(a,-a)$ give $a=1$, $b=0$, so $w=(1,-1)$. Checking the rest: $y_i f(x_i)=2,\,1,\,1,\,1,\,2$ for reviews 1–5, so review 3 also lies on a kerb (three points on the kerbs in two dimensions, so the $\alpha_i$ are not unique, but $w$ and $b$ are). A tied review, $x_1=x_2$, now scores $f=0$ and sits on the boundary: the classifier has no basis for deciding it. In §6.2 the negative mixed review 6 is what moved the boundary so that ties score $-1$.</li>
 </ol>
 
 <h3>Level 3</h3>
