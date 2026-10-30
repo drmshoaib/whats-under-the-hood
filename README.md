@@ -33,6 +33,7 @@ Lectures are released one at a time alongside the LinkedIn newsletter.
 | 02 | Logistic Regression | Why is a probability the output of a linear model? | [Read lecture](https://drmshoaib.github.io/whats-under-the-hood/02-logistic-regression/) |
 | 03 | k-Nearest Neighbours | How far can you get with no model at all? | [Read lecture](https://drmshoaib.github.io/whats-under-the-hood/03-k-nearest-neighbours/) |
 | 04 | Naive Bayes | Why does a wrong independence assumption still work? | [Read lecture](https://drmshoaib.github.io/whats-under-the-hood/04-naive-bayes/) |
+| 05 | Support Vector Machines | What does 'maximum margin' buy you, and what is a kernel really doing? | [Read lecture](https://drmshoaib.github.io/whats-under-the-hood/05-support-vector-machines/) |
 
 ## Repository structure
 
@@ -47,6 +48,8 @@ whats-under-the-hood/
 ├── 03-k-nearest-neighbours/
 │   └── index.html
 ├── 04-naive-bayes/
+│   └── index.html
+├── 05-support-vector-machines/
 │   └── index.html
 ├── assets/
 ├── index.html
