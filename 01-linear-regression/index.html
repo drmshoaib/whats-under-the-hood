@@ -333,8 +333,8 @@ $$ f(x) = \beta_0 + \beta_1 x_1 + \cdots + \beta_p x_p. $$
 <ul>
   <li>Replace the identity link with a sigmoid → logistic regression (<a href="../02-logistic-regression/">Lecture 2</a>).</li>
   <li>Add an $\ell_2$ penalty → ridge; an $\ell_1$ penalty → lasso.</li>
-  <li>Stack many of these with nonlinear activations → neural networks (<span class="plain-ref" title="Lecture 19 is released in Week 23">coming in Week 23</span>).</li>
-  <li>Put a Gaussian prior on $\beta$ and integrate it out → Bayesian linear regression, whose kernelised limit is a Gaussian process (<span class="plain-ref" title="Lecture 17 is released in Week 17">coming in Week 17</span>).</li>
+  <li>Stack many of these with nonlinear activations → neural networks (<span class="plain-ref" title="Lecture 19 is released in Week 24">coming in Week 24</span>).</li>
+  <li>Put a Gaussian prior on $\beta$ and integrate it out → Bayesian linear regression, whose kernelised limit is a Gaussian process (<span class="plain-ref" title="Lecture 17 is released in Week 18">coming in Week 18</span>).</li>
 </ul>
 
 <p><strong>Assumptions</strong> (the classical linear model, in increasing strength):</p>
@@ -679,7 +679,7 @@ $$ \mathbb{E}\big[(y_0 - \hat f(x_0))^2\big] = \underbrace{\big(\mathbb{E}[\hat 
 
 <p><strong>Scaling / standardisation:</strong> <em>Not required for plain OLS correctness</em>: the closed-form solution is invariant to linear rescaling of features (coefficients simply rescale to compensate). It is required for (a) ridge/lasso, where the penalty is scale-dependent, (b) gradient-descent fitting, where it fixes conditioning and speeds convergence, and (c) comparing coefficient magnitudes as "importances." Contrast this with k-nearest neighbours (<a href="../03-k-nearest-neighbours/">Lecture 3</a>) and SVMs (<a href="../05-support-vector-machines/">Lecture 5</a>), where scaling changes the fitted model itself.</p>
 
-<p><strong>Time ordering / stationarity:</strong> only relevant if data are temporal, in which case independence of errors is suspect and you'd move towards time-series methods (<span class="plain-ref" title="Lecture 18 is released in Week 18">coming in Week 18</span>).</p>
+<p><strong>Time ordering / stationarity:</strong> only relevant if data are temporal, in which case independence of errors is suspect and you'd move towards time-series methods (<span class="plain-ref" title="Lecture 18 is released in Week 19">coming in Week 19</span>).</p>
 
 <h2 id="s14">14. Evaluation</h2>
 
@@ -1086,7 +1086,7 @@ Replace squared loss with Huber loss (quadratic near zero, linear in the tails),
 </tbody>
 </table>
 
-<p><strong>Connections to carry forward:</strong> the linear predictor $x^\top\beta$, the least-squares/MLE equivalence, the projection geometry, and the bias–variance trade-off introduced here reappear throughout the course: in logistic regression (swap Gaussian for Bernoulli likelihood, <a href="../02-logistic-regression/">Lecture 2</a>), in ridge and lasso (regularisation as complexity control), in neural networks (stacked linear-plus-nonlinearity layers trained by the same SGD, <span class="plain-ref" title="Lecture 19 is released in Week 23">coming in Week 23</span>), and in Gaussian processes (Bayesian linear regression in an infinite feature space, <span class="plain-ref" title="Lecture 17 is released in Week 17">coming in Week 17</span>).</p>
+<p><strong>Connections to carry forward:</strong> the linear predictor $x^\top\beta$, the least-squares/MLE equivalence, the projection geometry, and the bias–variance trade-off introduced here reappear throughout the course: in logistic regression (swap Gaussian for Bernoulli likelihood, <a href="../02-logistic-regression/">Lecture 2</a>), in ridge and lasso (regularisation as complexity control), in neural networks (stacked linear-plus-nonlinearity layers trained by the same SGD, <span class="plain-ref" title="Lecture 19 is released in Week 24">coming in Week 24</span>), and in Gaussian processes (Bayesian linear regression in an infinite feature space, <span class="plain-ref" title="Lecture 17 is released in Week 18">coming in Week 18</span>).</p>
 </main>
 </div>
 </body>
